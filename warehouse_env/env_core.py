@@ -185,30 +185,57 @@ class FleetAI:
                         self.intervention_count     += 1
                         self._last_explanation       = explanation
                         self._last_intervention_type = "dependency_flag"
-                        # Do NOT block — env handles the gate; just log
-                        return intended_action, True, explanation
+                        return intended_action, True, explanation  # log only, don't block
 
         # ── Rule 5: Collision avoidance ────────────────────────────────────
         if intended_action.action_type == "move" and intended_action.direction:
             dx_map = {"up": -1, "down": 1, "left": 0, "right": 0}
             dy_map = {"up": 0,  "down": 0, "left": -1, "right": 1}
-            d = intended_action.direction
+            d  = intended_action.direction
             nx = pos[0] + dx_map.get(d, 0)
             ny = pos[1] + dy_map.get(d, 0)
-            # Check if another agent is at the destination
+
             for aid2, r2 in sm.robots.items():
-                if aid2 != agent_id and r2["pos"] == [nx, ny]:
-                    # Redirect perpendicularly
-                    alt_dir = "down" if d in ("left", "right") else "right"
-                    override    = Action(agent_id=agent_id, action_type="move", direction=alt_dir)
+                if aid2 == agent_id or r2["pos"] != [nx, ny]:
+                    continue
+
+                # ── Exception A: carrying agent heading to GOAL — NEVER block ──
+                # The drop zone must always be reachable for agents with items.
+                if carrying and [nx, ny] == [gx, gy]:
+                    # Instead, force the blocking idle agent to move away next step
+                    # (logged as a coordination event, not a collision)
                     explanation = (
-                        f"{agent_id} collision_avoid: redirected {d}->{alt_dir} "
-                        f"(would hit {aid2}) — FleetAI collision prevention."
+                        f"{agent_id} delivery_priority: goal occupied by {aid2}, "
+                        f"allowing entry — FleetAI delivery priority."
                     )
-                    self.intervention_count     += 1
                     self._last_explanation       = explanation
-                    self._last_intervention_type = "collision_avoid"
-                    return override, True, explanation
+                    self._last_intervention_type = "delivery_priority"
+                    return intended_action, False, explanation  # let it through
+
+                # ── Exception B: both agents heading same direction (convoy) ──
+                # Don't redirect if the other agent is also moving away next step
+                other_intent = self.agent_intents.get(aid2, {})
+                if other_intent.get("mode") == "idle" and [nx, ny] == [gx, gy]:
+                    # Blocking agent is idle AT the goal — force it away, let carrier through
+                    explanation = (
+                        f"{agent_id} delivery_priority: {aid2} idle at goal, "
+                        f"allowing carrier to enter — FleetAI coordination."
+                    )
+                    self._last_explanation       = explanation
+                    self._last_intervention_type = "delivery_priority"
+                    return intended_action, False, explanation
+
+                # ── Standard redirect ─────────────────────────────────────────
+                alt_dir     = "down" if d in ("left", "right") else "right"
+                override    = Action(agent_id=agent_id, action_type="move", direction=alt_dir)
+                explanation = (
+                    f"{agent_id} collision_avoid: redirected {d}->{alt_dir} "
+                    f"(would hit {aid2}) — FleetAI collision prevention."
+                )
+                self.intervention_count     += 1
+                self._last_explanation       = explanation
+                self._last_intervention_type = "collision_avoid"
+                return override, True, explanation
 
         self._last_explanation       = ""
         self._last_intervention_type = ""
