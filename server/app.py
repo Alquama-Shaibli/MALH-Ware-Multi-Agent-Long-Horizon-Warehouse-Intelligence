@@ -88,11 +88,16 @@ import numpy as np
 
 Q_TABLE_PATH = "q_table.pkl"
 
-# Load Q-table
+# Load Q-table (safe load — handles missing or LFS-pointer-corrupted files)
 q_table = {}
 if os.path.exists(Q_TABLE_PATH):
-    with open(Q_TABLE_PATH, "rb") as f:
-        q_table = pickle.load(f)
+    try:
+        with open(Q_TABLE_PATH, "rb") as f:
+            q_table = pickle.load(f)
+        print(f"[Q-Table] Loaded {len(q_table)} states from {Q_TABLE_PATH}")
+    except Exception as e:
+        print(f"[Q-Table] WARNING: Could not load {Q_TABLE_PATH} ({e}). Using heuristic fallback.")
+        q_table = {}
 
 class PredictRequest(BaseModel):
     agent_id: str
