@@ -15,14 +15,23 @@
             flex-direction: column;
             align-items: center;
         }
+        .banner {
+            background: linear-gradient(90deg, #1e3a8a 0%, #312e81 100%);
+            width: 100%;
+            max-width: 900px;
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #3b82f6;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
         h1 {
             color: #38bdf8;
-            margin-bottom: 5px;
-        }
-        p.subtitle {
-            color: #94a3b8;
-            margin-top: 0;
-            margin-bottom: 20px;
+            margin: 0;
+            font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         .container {
             display: flex;
@@ -32,10 +41,28 @@
             border-radius: 12px;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
         }
+        .canvas-container {
+            position: relative;
+        }
         canvas {
             background-color: #334155;
             border-radius: 8px;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .overlay-msg {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-weight: bold;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px #000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 5px 15px;
+            border-radius: 20px;
         }
         .panel {
             width: 300px;
@@ -65,91 +92,79 @@
             font-weight: bold;
             color: #f8fafc;
         }
-        .agent1-color { color: #60a5fa; }
-        .agent2-color { color: #f472b6; }
-        .legend {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            font-size: 12px;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .box {
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-        }
+        .agent1-color { color: #3b82f6; }
+        .agent2-color { color: #22c55e; }
         .controls {
-            margin-top: 20px;
+            margin-top: 15px;
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
         button {
             background: #38bdf8;
             color: #0f172a;
             border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
+            padding: 10px 16px;
+            border-radius: 6px;
             font-weight: bold;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.2s;
+            flex-grow: 1;
+            text-transform: uppercase;
+            font-size: 12px;
         }
-        button:hover { background: #0ea5e9; }
+        button:hover { background: #0ea5e9; transform: translateY(-1px); }
         button.danger { background: #ef4444; color: white; }
         button.danger:hover { background: #dc2626; }
+        button.demo { background: #a855f7; color: white; }
+        button.demo:hover { background: #9333ea; }
+        button.demo.active { background: #f59e0b; }
     </style>
 </head>
 <body>
 
-    <h1>Fleet AI Live Dashboard</h1>
-    <p class="subtitle">Real-time Multi-Agent Warehouse Monitoring</p>
+    <div class="banner">
+        <h1>🚀 Smart Warehouse Live Simulation (Multi-Agent AI)</h1>
+    </div>
 
     <div class="container">
         <div>
-            <canvas id="gridCanvas" width="500" height="500"></canvas>
+            <div class="canvas-container">
+                <canvas id="gridCanvas" width="500" height="500"></canvas>
+                <div id="overlayMsg" class="overlay-msg"></div>
+            </div>
             <div class="controls">
-                <button onclick="fetchState()">Refresh State</button>
-                <button class="danger" onclick="resetEnv('hard')">Reset (Hard)</button>
-                <button class="danger" onclick="resetEnv('easy')">Reset (Easy)</button>
+                <button id="learnBtn" class="demo" onclick="toggleLearning()">[ Start Learning Demo ]</button>
+                <button onclick="fetchState()">Refresh</button>
+                <button class="danger" onclick="resetEnv('hard')">Reset Env</button>
             </div>
         </div>
 
         <div class="panel">
-            <div class="card">
-                <h3>System Status</h3>
-                <div class="stat-row"><span>Grid Size:</span> <span class="value" id="gridSize">-</span></div>
-                <div class="stat-row"><span>Completed Orders:</span> <span class="value" id="compOrders">-</span></div>
-                <div class="stat-row"><span>Steps Taken:</span> <span class="value" id="steps">-</span></div>
+            <div class="card" style="border-left-color: #a855f7;">
+                <h3>Live Learning Metrics</h3>
+                <div class="stat-row"><span>Episode Number:</span> <span class="value" id="epNum">1</span></div>
+                <div class="stat-row"><span>Running Reward:</span> <span class="value" id="totReward">0.00</span></div>
+                <div class="stat-row"><span>Total Collisions:</span> <span class="value" id="collisions" style="color: #ef4444;">0</span></div>
+                <div class="stat-row"><span>Coordination:</span> <span class="value" id="coordStatus" style="color: #4ade80;">GOOD</span></div>
             </div>
 
-            <div class="card" style="border-left-color: #60a5fa;">
-                <h3>Agent 1 🔵</h3>
-                <div class="stat-row"><span>Position:</span> <span class="value agent1-color" id="a1Pos">-</span></div>
+            <div class="card">
+                <h3>Environment State</h3>
+                <div class="stat-row"><span>Items Remaining:</span> <span class="value" id="itemsRem">-</span></div>
+                <div class="stat-row"><span>Deliveries Made:</span> <span class="value" id="deliveries">0</span></div>
+            </div>
+
+            <div class="card" style="border-left-color: #3b82f6;">
+                <h3>Agent 1 (Blue)</h3>
                 <div class="stat-row"><span>Battery:</span> <span class="value agent1-color" id="a1Bat">-</span></div>
                 <div class="stat-row"><span>Carrying:</span> <span class="value agent1-color" id="a1Carry">-</span></div>
             </div>
 
-            <div class="card" style="border-left-color: #f472b6;">
-                <h3>Agent 2 🌸</h3>
-                <div class="stat-row"><span>Position:</span> <span class="value agent2-color" id="a2Pos">-</span></div>
+            <div class="card" style="border-left-color: #22c55e;">
+                <h3>Agent 2 (Green)</h3>
                 <div class="stat-row"><span>Battery:</span> <span class="value agent2-color" id="a2Bat">-</span></div>
                 <div class="stat-row"><span>Carrying:</span> <span class="value agent2-color" id="a2Carry">-</span></div>
-            </div>
-
-            <div class="card" style="border-left-color: #94a3b8;">
-                <h3>Legend</h3>
-                <div class="legend">
-                    <div class="legend-item"><div class="box" style="background:#60a5fa; border-radius:50%"></div> Agent 1</div>
-                    <div class="legend-item"><div class="box" style="background:#f472b6; border-radius:50%"></div> Agent 2</div>
-                    <div class="legend-item"><div class="box" style="background:#fbbf24"></div> Item</div>
-                    <div class="legend-item"><div class="box" style="background:#ef4444"></div> Obstacle</div>
-                    <div class="legend-item"><div class="box" style="background:#4ade80"></div> Goal (Drop)</div>
-                    <div class="legend-item"><div class="box" style="background:#a855f7"></div> Charger</div>
-                </div>
             </div>
         </div>
     </div>
@@ -157,17 +172,86 @@
     <script>
         const canvas = document.getElementById('gridCanvas');
         const ctx = canvas.getContext('2d');
-        let pollingInterval = null;
+        
+        let learningMode = false;
+        let demoInterval = null;
+        let episodeNum = 1;
+        let totalReward = 0;
+        let collisionCount = 0;
+        let deliveryCount = 0;
+
+        function showOverlay(msg, color) {
+            const el = document.getElementById('overlayMsg');
+            el.innerText = msg;
+            el.style.color = color;
+            el.style.opacity = 1;
+            setTimeout(() => { el.style.opacity = 0; }, 1500);
+        }
+
+        function toggleLearning() {
+            learningMode = !learningMode;
+            const btn = document.getElementById("learnBtn");
+            if(learningMode) {
+                btn.innerText = "[ Stop Learning Demo ]";
+                btn.classList.add("active");
+                demoInterval = setInterval(simulateStep, 200);
+                showOverlay("Initializing Online RL...", "#38bdf8");
+            } else {
+                btn.innerText = "[ Start Learning Demo ]";
+                btn.classList.remove("active");
+                clearInterval(demoInterval);
+            }
+        }
+
+        async function simulateStep() {
+            const actions = ["up", "down", "left", "right", "pick", "drop"];
+            const act = actions[Math.floor(Math.random()*actions.length)];
+            const agent = Math.random() > 0.5 ? "agent1" : "agent2";
+            
+            try {
+                const res = await fetch('/step', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({agent_id: agent, action_type: ["pick", "drop"].includes(act) ? act : "move", direction: ["pick", "drop"].includes(act) ? null : act})
+                });
+                const data = await res.json();
+                
+                totalReward += data.reward;
+                document.getElementById('totReward').innerText = totalReward.toFixed(2);
+
+                if(data.reward < -0.1) {
+                    collisionCount++;
+                    document.getElementById('collisions').innerText = collisionCount;
+                    document.getElementById('coordStatus').innerText = "CONFLICT ⚠";
+                    document.getElementById('coordStatus').style.color = "#ef4444";
+                    showOverlay("⚠ Conflict detected", "#ef4444");
+                } else if (data.reward > 0.5) {
+                    deliveryCount++;
+                    document.getElementById('deliveries').innerText = deliveryCount;
+                    document.getElementById('coordStatus').innerText = "GOOD ✔";
+                    document.getElementById('coordStatus').style.color = "#4ade80";
+                    showOverlay("✔ Agents improving coordination", "#4ade80");
+                }
+
+                if(data.done) {
+                    episodeNum++;
+                    document.getElementById('epNum').innerText = episodeNum;
+                    resetEnv('easy', false);
+                } else {
+                    drawState(data.observation);
+                    updateUI(data.observation);
+                }
+            } catch(e) {}
+        }
 
         function drawState(state) {
             const [cols, rows] = state.grid_size;
             const cellW = canvas.width / cols;
             const cellH = canvas.height / rows;
 
-            // Clear background
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw grid lines
+            // Grid lines
             ctx.strokeStyle = '#475569';
             ctx.lineWidth = 1;
             for(let i=0; i<=cols; i++) {
@@ -177,42 +261,39 @@
                 ctx.beginPath(); ctx.moveTo(0, i*cellH); ctx.lineTo(canvas.width, i*cellH); ctx.stroke();
             }
 
-            // Draw Charger
+            // Charger
             if(state.charge_station) {
                 const [cx, cy] = state.charge_station;
                 ctx.fillStyle = '#a855f7';
                 ctx.fillRect(cx*cellW + 2, cy*cellH + 2, cellW - 4, cellH - 4);
             }
 
-            // Draw Goal
+            // Goal
             if(state.goal) {
                 const [gx, gy] = state.goal;
-                ctx.fillStyle = '#4ade80';
+                ctx.fillStyle = '#f59e0b';
                 ctx.fillRect(gx*cellW + 2, gy*cellH + 2, cellW - 4, cellH - 4);
             }
 
-            // Draw Obstacles
+            // Obstacles
             if(state.obstacles) {
                 ctx.fillStyle = '#ef4444';
                 state.obstacles.forEach(obs => {
-                    // Extract x,y robustly
                     let ox, oy;
                     if(Array.isArray(obs)) [ox, oy] = obs;
                     else if(obs.pos) [ox, oy] = obs.pos;
-                    if(ox !== undefined && oy !== undefined) {
-                        ctx.fillRect(ox*cellW + 2, oy*cellH + 2, cellW - 4, cellH - 4);
-                    }
+                    if(ox !== undefined) ctx.fillRect(ox*cellW + 2, oy*cellH + 2, cellW - 4, cellH - 4);
                 });
             }
 
-            // Draw Items
+            // Items
             if(state.inventory) {
                 ctx.fillStyle = '#fbbf24';
                 state.inventory.forEach(item => {
                     let ix, iy;
                     if(Array.isArray(item)) [ix, iy] = item;
                     else if(item.pos) [ix, iy] = item.pos;
-                    if(ix !== undefined && iy !== undefined) {
+                    if(ix !== undefined) {
                         ctx.beginPath();
                         ctx.arc(ix*cellW + cellW/2, iy*cellH + cellH/2, Math.min(cellW, cellH)*0.3, 0, Math.PI*2);
                         ctx.fill();
@@ -220,74 +301,74 @@
                 });
             }
 
-            // Draw Robots
+            // Robots
             if(state.robots) {
-                const colors = {'agent1': '#60a5fa', 'agent2': '#f472b6'};
+                const colors = {'agent1': '#3b82f6', 'agent2': '#22c55e'}; // Blue & Green
+                const labels = {'agent1': 'A1', 'agent2': 'A2'};
                 Object.keys(state.robots).forEach(aid => {
                     const r = state.robots[aid];
                     const [rx, ry] = r.pos;
+                    
                     ctx.fillStyle = colors[aid] || '#fff';
                     ctx.beginPath();
                     ctx.arc(rx*cellW + cellW/2, ry*cellH + cellH/2, Math.min(cellW, cellH)*0.4, 0, Math.PI*2);
                     ctx.fill();
-                    // Battery indicator ring
-                    ctx.strokeStyle = r.battery < 20 ? '#ef4444' : '#4ade80';
-                    ctx.lineWidth = 3;
+                    
+                    ctx.strokeStyle = r.battery < 20 ? '#ef4444' : '#fff';
+                    ctx.lineWidth = 2;
                     ctx.stroke();
+
+                    // Label "A1" / "A2"
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 14px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(labels[aid], rx*cellW + cellW/2, ry*cellH + cellH/2);
                 });
             }
         }
 
         function updateUI(state) {
-            document.getElementById('gridSize').innerText = state.grid_size.join(' x ');
-            document.getElementById('compOrders').innerText = state.completed_orders ? state.completed_orders.length : 0;
-            document.getElementById('steps').innerText = state.steps || 0;
-
+            document.getElementById('itemsRem').innerText = state.inventory ? state.inventory.length : 0;
             if(state.robots && state.robots['agent1']) {
                 const r = state.robots['agent1'];
-                document.getElementById('a1Pos').innerText = r.pos.join(',');
                 document.getElementById('a1Bat').innerText = Math.round(r.battery) + '%';
-                document.getElementById('a1Carry').innerText = r.carrying.length > 0 ? r.carrying.join(',') : 'None';
+                document.getElementById('a1Carry').innerText = r.carrying.length > 0 ? 'Yes' : 'No';
             }
             if(state.robots && state.robots['agent2']) {
                 const r = state.robots['agent2'];
-                document.getElementById('a2Pos').innerText = r.pos.join(',');
                 document.getElementById('a2Bat').innerText = Math.round(r.battery) + '%';
-                document.getElementById('a2Carry').innerText = r.carrying.length > 0 ? r.carrying.join(',') : 'None';
+                document.getElementById('a2Carry').innerText = r.carrying.length > 0 ? 'Yes' : 'No';
             }
         }
 
         async function fetchState() {
             try {
-                // If hitting an error due to no active episode, it might fail, handled gracefully
                 const res = await fetch('/state');
                 const state = await res.json();
                 if(state.grid_size) {
                     drawState(state);
                     updateUI(state);
                 }
-            } catch (err) {
-                console.error("Fetch state error:", err);
-            }
+            } catch (err) {}
         }
 
-        async function resetEnv(task) {
+        async function resetEnv(task, refresh=true) {
             try {
                 await fetch('/reset', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({task: task})
                 });
-                fetchState();
-            } catch (err) {
-                console.error("Reset error:", err);
-            }
+                if(refresh) fetchState();
+            } catch (err) {}
         }
 
-        // Poll every 500ms
-        pollingInterval = setInterval(fetchState, 500);
+        // Only poll if not in learning demo mode
+        setInterval(() => {
+            if(!learningMode) fetchState();
+        }, 1000);
         
-        // Initial fetch
         fetchState();
     </script>
 </body>

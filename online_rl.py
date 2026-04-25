@@ -141,7 +141,15 @@ def run_online_rl():
         agent2.end_episode()
 
         rewards_per_episode.append(total_reward)
-        print(f"[Episode {episode+1:02d}] Reward: {total_reward:.2f} | Epsilon: {agent1.epsilon:.2f}")
+        print(f"\n[Episode {episode+1:02d}]")
+        print(f"Reward: {total_reward:.2f}")
+        print(f"Epsilon: {agent1.epsilon:.2f}")
+        print(f"Status: {'LEARNING' if agent1.epsilon > 0.3 else 'OPTIMIZING'}")
+
+    print("\n=== TRAINING SUMMARY ===")
+    print(f"Start Reward : {rewards_per_episode[0]:.2f}")
+    print(f"Final Reward : {rewards_per_episode[-1]:.2f}")
+    print(f"Improvement  : {rewards_per_episode[-1] - rewards_per_episode[0]:.2f}\n")
 
     return rewards_per_episode
 
