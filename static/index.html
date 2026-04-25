@@ -150,247 +150,232 @@
         <div class="panel">
             <div class="card" style="border-left-color: #a855f7;">
                 <h3>Live Learning Metrics</h3>
-                <div class="stat-row"><span>Episode Number:</span> <span class="value" id="epNum">1</span></div>
-                <div class="stat-row"><span>Running Reward:</span> <span class="value" id="totReward">0.00</span></div>
+                <div class="stat-row"><span>Episode Number:</span> <span class="value" id="episode">1</span></div>
                 <div class="stat-row"><span>Total Collisions:</span> <span class="value" id="collisions" style="color: #ef4444;">0</span></div>
-                <div class="stat-row"><span>Coordination:</span> <span class="value" id="coordStatus" style="color: #4ade80;">GOOD</span></div>
+                <canvas id="chart" width="280" height="150" style="margin-top:10px; background:white; border-radius:4px;"></canvas>
             </div>
 
             <div class="card">
                 <h3>Environment State</h3>
-                <div class="stat-row"><span>Items Remaining:</span> <span class="value" id="itemsRem">-</span></div>
+                <div class="stat-row"><span>Items Remaining:</span> <span class="value" id="items">-</span></div>
                 <div class="stat-row"><span>Deliveries Made:</span> <span class="value" id="deliveries">0</span></div>
             </div>
 
             <div class="card" style="border-left-color: #3b82f6;">
                 <h3>Agent 1 (Blue)</h3>
-                <div class="stat-row"><span>Battery:</span> <span class="value agent1-color" id="a1Bat">-</span></div>
-                <div class="stat-row"><span>Carrying:</span> <span class="value agent1-color" id="a1Carry">-</span></div>
+                <div class="stat-row"><span>Battery:</span> <span class="value agent1-color" id="battery1">-</span></div>
+                <div class="stat-row"><span>Carrying:</span> <span class="value agent1-color" id="carry1">-</span></div>
             </div>
 
             <div class="card" style="border-left-color: #22c55e;">
                 <h3>Agent 2 (Green)</h3>
-                <div class="stat-row"><span>Battery:</span> <span class="value agent2-color" id="a2Bat">-</span></div>
-                <div class="stat-row"><span>Carrying:</span> <span class="value agent2-color" id="a2Carry">-</span></div>
+                <div class="stat-row"><span>Battery:</span> <span class="value agent2-color" id="battery2">-</span></div>
+                <div class="stat-row"><span>Carrying:</span> <span class="value agent2-color" id="carry2">-</span></div>
             </div>
         </div>
     </div>
 
+    <!-- Chart.js for graph tracking -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        const canvas = document.getElementById('gridCanvas');
-        const ctx = canvas.getContext('2d');
-        const canvasContainer = document.getElementById('canvasContainer');
-        
-        let learningMode = false;
-        let demoInterval = null;
-        let episodeNum = 1;
-        let totalReward = 0;
-        let collisionCount = 0;
-        let deliveryCount = 0;
+        let currentEpisode = 1;
+        let running = false;
+        let chartInstance = null;
+        let rewards = [];
 
-        function showOverlay(msg, color, duration=1500) {
-            const el = document.getElementById('overlayMsg');
-            el.innerText = msg;
-            el.style.color = color;
-            el.style.opacity = 1;
-            setTimeout(() => { el.style.opacity = 0; }, duration);
+        async function fetchState() {
+          try {
+            const res = await fetch("/state");
+            const data = await res.json();
+
+            if (!data || !data.agents) return;
+
+            updateUI(data);
+            drawGrid(data);
+
+          } catch (err) {
+            console.error("State fetch error:", err);
+          }
+        }
+
+        function updateUI(data) {
+          document.getElementById("episode").innerText = currentEpisode;
+          document.getElementById("collisions").innerText = data.collisions;
+
+          document.getElementById("items").innerText = data.items.length;
+          document.getElementById("deliveries").innerText = data.deliveries;
+
+          if (data.agents.agent1) {
+              document.getElementById("battery1").innerText = data.agents.agent1.battery;
+              document.getElementById("carry1").innerText = data.agents.agent1.carrying ? "YES" : "NO";
+          }
+
+          if (data.agents.agent2) {
+              document.getElementById("battery2").innerText = data.agents.agent2.battery;
+              document.getElementById("carry2").innerText = data.agents.agent2.carrying ? "YES" : "NO";
+          }
+        }
+
+        function drawGrid(data) {
+          const canvas = document.getElementById("gridCanvas");
+          const ctx = canvas.getContext("2d");
+
+          const size = data.grid_size;
+          const cell = canvas.width / size;
+
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          // Grid lines
+          ctx.strokeStyle = '#475569';
+          ctx.lineWidth = 1;
+          for(let i=0; i<=size; i++) {
+              ctx.beginPath(); ctx.moveTo(i*cell, 0); ctx.lineTo(i*cell, canvas.height); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(0, i*cell); ctx.lineTo(canvas.width, i*cell); ctx.stroke();
+          }
+
+          // Draw items
+          data.items.forEach(item => {
+            ctx.fillStyle = "yellow";
+            ctx.beginPath();
+            ctx.arc(item.x * cell + cell/2, item.y * cell + cell/2, cell * 0.3, 0, Math.PI*2);
+            ctx.fill();
+          });
+
+          // Draw obstacles
+          data.obstacles.forEach(obs => {
+            ctx.fillStyle = "red";
+            ctx.fillRect(obs.x * cell + 2, obs.y * cell + 2, cell - 4, cell - 4);
+          });
+
+          // Draw agents
+          if (data.agents.agent1) {
+              ctx.fillStyle = "blue";
+              ctx.beginPath();
+              ctx.arc(data.agents.agent1.x * cell + cell/2, data.agents.agent1.y * cell + cell/2, cell * 0.4, 0, Math.PI*2);
+              ctx.fill();
+          }
+
+          if (data.agents.agent2) {
+              ctx.fillStyle = "green";
+              ctx.beginPath();
+              ctx.arc(data.agents.agent2.x * cell + cell/2, data.agents.agent2.y * cell + cell/2, cell * 0.4, 0, Math.PI*2);
+              ctx.fill();
+          }
+        }
+
+        async function stepEnv() {
+            // In a real environment, we would fetch optimal actions, but the prompt specified explicit actions
+            try {
+              let r1 = await fetch("/step", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                  agent_id: "agent1",
+                  action_type: "move",
+                  direction: "right"
+                })
+              });
+              let d1 = await r1.json();
+              updateGraph(d1.reward);
+
+              let r2 = await fetch("/step", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                  agent_id: "agent2",
+                  action_type: "move",
+                  direction: "left"
+                })
+              });
+              let d2 = await r2.json();
+              updateGraph(d2.reward);
+            } catch (err) {
+                console.error("Step error:", err);
+            }
+        }
+
+        function updateGraph(reward) {
+          rewards.push(reward);
+          // Keep array size manageable
+          if (rewards.length > 50) rewards.shift();
+
+          const ctx = document.getElementById("chart").getContext("2d");
+
+          if (chartInstance) {
+              chartInstance.data.labels = rewards.map((_, i) => i);
+              chartInstance.data.datasets[0].data = rewards;
+              chartInstance.update();
+          } else {
+              chartInstance = new Chart(ctx, {
+                type: "line",
+                data: {
+                  labels: rewards.map((_, i) => i),
+                  datasets: [{
+                    label: "Reward",
+                    data: rewards,
+                    borderColor: 'blue',
+                    tension: 0.1
+                  }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: { display: false }
+                    }
+                }
+              });
+          }
+        }
+
+        async function startDemo() {
+          const btn = document.getElementById("learnBtn");
+          if(running) {
+              stopDemo();
+              btn.innerText = "[ Start Learning Demo ]";
+              btn.classList.remove("active");
+              return;
+          }
+          
+          btn.innerText = "[ Stop Learning Demo ]";
+          btn.classList.add("active");
+          running = true;
+
+          while (running) {
+            await stepEnv();
+            await fetchState();
+
+            await new Promise(r => setTimeout(r, 500));
+          }
+        }
+
+        function stopDemo() {
+          running = false;
         }
 
         function toggleLearning() {
-            learningMode = !learningMode;
-            const btn = document.getElementById("learnBtn");
-            if(learningMode) {
-                btn.innerText = "[ Stop Learning Demo ]";
-                btn.classList.add("active");
-                demoInterval = setInterval(simulateStep, 200);
-                showOverlay("Connecting to RL Policy...", "#38bdf8");
-            } else {
-                btn.innerText = "[ Start Learning Demo ]";
-                btn.classList.remove("active");
-                clearInterval(demoInterval);
-            }
+            startDemo();
         }
 
-        async function simulateStep() {
-            const agent = Math.random() > 0.5 ? "agent1" : "agent2";
-            
-            try {
-                // 1. Fetch TRUE action from RL Policy
-                const predRes = await fetch('/predict', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({agent_id: agent})
-                });
-                const actionData = await predRes.json();
-
-                // 2. Execute Action
-                const res = await fetch('/step', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(actionData)
-                });
-                const data = await res.json();
-                
-                // 3. Update Metrics
-                totalReward += data.reward;
-                document.getElementById('totReward').innerText = totalReward.toFixed(2);
-
-                if(data.reward < -0.1) {
-                    collisionCount++;
-                    document.getElementById('collisions').innerText = collisionCount;
-                    document.getElementById('coordStatus').innerText = "CONFLICT ⚠";
-                    document.getElementById('coordStatus').style.color = "#ef4444";
-                } else if (data.reward > 0.5) {
-                    deliveryCount++;
-                    document.getElementById('deliveries').innerText = deliveryCount;
-                    document.getElementById('coordStatus').innerText = "GOOD ✔";
-                    document.getElementById('coordStatus').style.color = "#4ade80";
-                    showOverlay("✔ Item Delivered!", "#4ade80");
-                }
-
-                // 4. Fleet AI Visualizer Check
-                if (data.info && data.info.fleet_ai_explanation) {
-                    canvasContainer.classList.add('fleet-ai-flash');
-                    showOverlay("⚡ " + data.info.fleet_ai_explanation, "#06b6d4", 2500);
-                    setTimeout(() => canvasContainer.classList.remove('fleet-ai-flash'), 500);
-                }
-
-                if(data.done) {
-                    episodeNum++;
-                    document.getElementById('epNum').innerText = episodeNum;
-                    resetEnv('easy', false);
-                } else {
-                    drawState(data.observation);
-                    updateUI(data.observation);
-                }
-            } catch(e) {}
-        }
-
-        function drawState(state) {
-            const [cols, rows] = state.grid_size;
-            const cellW = canvas.width / cols;
-            const cellH = canvas.height / rows;
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Grid lines
-            ctx.strokeStyle = '#475569';
-            ctx.lineWidth = 1;
-            for(let i=0; i<=cols; i++) {
-                ctx.beginPath(); ctx.moveTo(i*cellW, 0); ctx.lineTo(i*cellW, canvas.height); ctx.stroke();
-            }
-            for(let i=0; i<=rows; i++) {
-                ctx.beginPath(); ctx.moveTo(0, i*cellH); ctx.lineTo(canvas.width, i*cellH); ctx.stroke();
-            }
-
-            // Charger
-            if(state.charge_station) {
-                const [cx, cy] = state.charge_station;
-                ctx.fillStyle = '#a855f7';
-                ctx.fillRect(cx*cellW + 2, cy*cellH + 2, cellW - 4, cellH - 4);
-            }
-
-            // Goal
-            if(state.goal) {
-                const [gx, gy] = state.goal;
-                ctx.fillStyle = '#f59e0b';
-                ctx.fillRect(gx*cellW + 2, gy*cellH + 2, cellW - 4, cellH - 4);
-            }
-
-            // Obstacles
-            if(state.obstacles) {
-                ctx.fillStyle = '#ef4444';
-                state.obstacles.forEach(obs => {
-                    let ox, oy;
-                    if(Array.isArray(obs)) [ox, oy] = obs;
-                    else if(obs.pos) [ox, oy] = obs.pos;
-                    if(ox !== undefined) ctx.fillRect(ox*cellW + 2, oy*cellH + 2, cellW - 4, cellH - 4);
-                });
-            }
-
-            // Items
-            if(state.inventory) {
-                ctx.fillStyle = '#fbbf24';
-                state.inventory.forEach(item => {
-                    let ix, iy;
-                    if(Array.isArray(item)) [ix, iy] = item;
-                    else if(item.pos) [ix, iy] = item.pos;
-                    if(ix !== undefined) {
-                        ctx.beginPath();
-                        ctx.arc(ix*cellW + cellW/2, iy*cellH + cellH/2, Math.min(cellW, cellH)*0.3, 0, Math.PI*2);
-                        ctx.fill();
-                    }
-                });
-            }
-
-            // Robots
-            if(state.robots) {
-                const colors = {'agent1': '#3b82f6', 'agent2': '#22c55e'}; // Blue & Green
-                const labels = {'agent1': 'A1', 'agent2': 'A2'};
-                Object.keys(state.robots).forEach(aid => {
-                    const r = state.robots[aid];
-                    const [rx, ry] = r.pos;
-                    
-                    ctx.fillStyle = colors[aid] || '#fff';
-                    ctx.beginPath();
-                    ctx.arc(rx*cellW + cellW/2, ry*cellH + cellH/2, Math.min(cellW, cellH)*0.4, 0, Math.PI*2);
-                    ctx.fill();
-                    
-                    ctx.strokeStyle = r.battery < 20 ? '#ef4444' : '#fff';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-
-                    // Label "A1" / "A2"
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 14px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(labels[aid], rx*cellW + cellW/2, ry*cellH + cellH/2);
-                });
-            }
-        }
-
-        function updateUI(state) {
-            document.getElementById('itemsRem').innerText = state.inventory ? state.inventory.length : 0;
-            if(state.robots && state.robots['agent1']) {
-                const r = state.robots['agent1'];
-                document.getElementById('a1Bat').innerText = Math.round(r.battery) + '%';
-                document.getElementById('a1Carry').innerText = r.carrying.length > 0 ? 'Yes' : 'No';
-            }
-            if(state.robots && state.robots['agent2']) {
-                const r = state.robots['agent2'];
-                document.getElementById('a2Bat').innerText = Math.round(r.battery) + '%';
-                document.getElementById('a2Carry').innerText = r.carrying.length > 0 ? 'Yes' : 'No';
-            }
-        }
-
-        async function fetchState() {
-            try {
-                const res = await fetch('/state');
-                const state = await res.json();
-                if(state.grid_size) {
-                    drawState(state);
-                    updateUI(state);
-                }
-            } catch (err) {}
-        }
-
-        async function resetEnv(task, refresh=true) {
+        async function resetEnv(task) {
             try {
                 await fetch('/reset', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({task: task})
                 });
-                if(refresh) fetchState();
+                rewards = [];
+                if(chartInstance) {
+                    chartInstance.destroy();
+                    chartInstance = null;
+                }
+                currentEpisode++;
+                fetchState();
             } catch (err) {}
         }
 
-        // Only poll if not in learning demo mode
-        setInterval(() => {
-            if(!learningMode) fetchState();
-        }, 1000);
-        
+        // Initial fetch
         fetchState();
     </script>
 </body>

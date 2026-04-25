@@ -155,8 +155,28 @@ def predict(req: PredictRequest):
 # ── State ─────────────────────────────────────────────────────────────────────
 @app.get("/state")
 def state():
-    """Return full current environment state (all agents, orders, obstacles)."""
-    return env.state()
+    """Return full current environment state (all agents, orders, obstacles) tailored for the UI."""
+    raw_state = env.state()
+    sm = env.state_manager
+    return {
+        "grid_size": raw_state.get("grid_size", 10),
+        "agents": {
+            aid: {
+                "x": r["pos"][0],
+                "y": r["pos"][1],
+                "battery": r["battery"],
+                "carrying": len(r["carrying"]) > 0
+            } for aid, r in raw_state.get("robots", {}).items()
+        },
+        "items": [
+            {"x": loc[0], "y": loc[1]} for loc in raw_state.get("inventory", {}).values()
+        ],
+        "obstacles": [
+            {"x": obs[0], "y": obs[1]} for obs in raw_state.get("obstacles", [])
+        ],
+        "deliveries": len(raw_state.get("completed_orders", [])),
+        "collisions": getattr(sm, "collisions", 0) + getattr(sm, "agent_collisions", 0)
+    }
 
 
 # ── Fleet AI Oversight Dashboard ──────────────────────────────────────────────
