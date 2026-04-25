@@ -255,7 +255,9 @@ def predict(req: PredictRequest):
             tx, ty = goal
             mode = "delivering"
         else:
-            tx, ty = goal
+            # ── IDLE: move toward charge station so goal cell stays clear ──
+            # This prevents idle agents from blocking the delivery zone
+            tx, ty = charge_station
             mode = "idle"
 
         # ── Register resolved intent with Fleet AI (communication broadcast) ──
@@ -294,7 +296,9 @@ def predict(req: PredictRequest):
             nx, ny = pos[0] + ddx, pos[1] + ddy
             if not (0 <= nx < grid_size and 0 <= ny < grid_size): continue
             if (nx, ny) in obstacle_set:                           continue
-            if [nx, ny] in other_positions:                        continue
+            # Only avoid other agents if we're NOT trying to reach the goal to deliver
+            # (carrying agent must be able to enter goal cell even if another agent is there)
+            if [nx, ny] in other_positions and mode != "delivering":  continue
             direction = d
             break
 
