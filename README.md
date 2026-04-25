@@ -16,11 +16,10 @@ tags:
 
 # Smart Warehouse Multi-Agent Intelligence Environment
 
-**OpenEnv Hackathon Submission -- Top 1% Target**
 
 Themes: Multi-Agent Reasoning, Long-Horizon Planning, World Modeling, Self-Improvement
 
-## Links (required for judging)
+## Links 
 
 - **Hugging Face Space (runnable env)**: `https://huggingface.co/spaces/AlquamaShaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence`
 - **<2 minute demo video**: *(ADD LINK — required)*
@@ -33,7 +32,6 @@ Themes: Multi-Agent Reasoning, Long-Horizon Planning, World Modeling, Self-Impro
   - **Training script (TRL / Unsloth)**: `train_llm.py` (TRL `SFTTrainer` when deps available; CPU fallback)
   - **Evidence of training**: `training_curve.png`, `self_improvement_curve.png`, `sft_training_curve.png`, `before_after.json`
   - **Mini-blog + <2 min video**: *(ADD LINKS ABOVE)*
-  - **Hosted on Hugging Face Spaces**: link above
 
 - **Theme coverage**
   - **Theme #1 Multi-Agent Interactions**: cooperation bonus + charge contention + intent conflict + Theory of Mind (`intent_conflict`, `coordination_efficiency`, `agent_intent`, `beliefs`)
