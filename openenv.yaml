@@ -1,0 +1,47 @@
+spec_version: 1
+name: smart-warehouse-env
+description: >
+  Multi-agent warehouse RL environment with Fleet AI oversight, long-horizon
+  order dependencies, partial observability, adaptive curriculum, and SFT
+  training pipeline. Two cooperative robots (agent1, agent2) fulfill chained
+  orders across easy / medium / hard tasks.
+
+# OpenEnv entrypoint — must be callable, returns the FastAPI app
+entrypoint: server.app:main
+
+runtime: fastapi
+port: 8000
+
+# API endpoints exposed to the OpenEnv harness
+endpoints:
+  - path: /reset
+    method: POST
+    description: Reset environment to a given task (easy|medium|hard)
+  - path: /step
+    method: POST
+    description: Execute one agent action; returns observation, reward, done, info
+  - path: /state
+    method: GET
+    description: Full environment state (all agents, orders, obstacles)
+  - path: /oversight
+    method: GET
+    description: Fleet AI real-time oversight metrics
+
+tasks:
+  - easy
+  - medium
+  - hard
+
+observation_space: Observation
+action_space: Action
+reward_space: Reward
+
+tags:
+  - openenv
+  - multi-agent
+  - long-horizon
+  - reinforcement-learning
+  - fleet-ai
+  - fastapi
+  - curriculum-learning
+  - partial-observability

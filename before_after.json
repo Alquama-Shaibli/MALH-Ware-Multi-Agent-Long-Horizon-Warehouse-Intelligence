@@ -1,0 +1,10 @@
+{
+  "before": 0.457228,
+  "after": 0.45845,
+  "delta": 0.001222,
+  "improvement_pct": 0.27,
+  "method": "mini_training_loop",
+  "n_samples": 5230,
+  "model_target": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+  "measured": true
+}

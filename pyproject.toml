@@ -1,0 +1,21 @@
+[project]
+name = "smart-warehouse-env"
+version = "0.1.0"
+description = "Smart Warehouse Multi-Agent RL Environment"
+requires-python = ">=3.10"
+
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "openenv-core>=0.2.0",
+    "openenv",
+    "openai",
+    "matplotlib",
+]
+
+[project.scripts]
+server = "server.app:main"
+
+[tool.setuptools.packages.find]
+include = ["warehouse_env*", "server*"]

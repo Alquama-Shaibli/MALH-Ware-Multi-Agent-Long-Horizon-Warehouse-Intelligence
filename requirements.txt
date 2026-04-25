@@ -1,0 +1,24 @@
+# ── Core API ──────────────────────────────────────────────────────────────────
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+
+# ── OpenEnv Compliance ─────────────────────────────────────────────────────────
+openenv-core>=0.2.0
+openenv
+
+# ── LLM / Inference ───────────────────────────────────────────────────────────
+openai>=1.0.0
+
+# ── Training & Visualization ──────────────────────────────────────────────────
+matplotlib>=3.7.0
+numpy>=1.24.0
+
+# ── SFT Training Pipeline (Theme 4 — install separately if no GPU) ────────────
+# Uncomment or run:  pip install transformers trl datasets peft accelerate
+# torch>=2.0.0
+# transformers>=4.40.0
+# trl>=0.8.0
+# datasets>=2.18.0
+# peft>=0.10.0
+# accelerate>=0.28.0
