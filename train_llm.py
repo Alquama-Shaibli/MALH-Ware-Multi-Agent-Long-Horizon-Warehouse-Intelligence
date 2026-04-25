@@ -265,7 +265,8 @@ def evaluate_model(model=None, tokenizer=None, n_episodes: int = 5) -> float:
                             with torch.no_grad():
                                 out = model.generate(
                                     **inputs, max_new_tokens=5, do_sample=False,
-                                    pad_token_id=tokenizer.eos_token_id
+                                    pad_token_id=tokenizer.eos_token_id,
+                                    repetition_penalty=1.2
                                 )
                             decoded = tokenizer.decode(
                                 out[0][inputs["input_ids"].shape[-1]:], skip_special_tokens=True

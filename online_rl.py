@@ -109,6 +109,9 @@ def run_online_rl():
     agent2 = SimplePolicy("agent2")
 
     rewards_per_episode = []
+    collision_rates = []
+    delivery_rates = []
+    coordination_rates = []
     
     print("Starting Online RL Training (50 Episodes)...")
 
@@ -116,6 +119,9 @@ def run_online_rl():
         # Force easy task to ensure it converges in 50 episodes
         obs = env.reset(task="easy")
         total_reward = 0
+        ep_collisions = 0
+        ep_deliveries = 0
+        ep_coordination = 0
 
         for step in range(100):
             # Agent 1 Learning
@@ -124,15 +130,25 @@ def run_online_rl():
             a2_action = Action(agent_id="agent2", action_type="move", direction=random.choice(["up", "down", "left", "right"]))
             
             # Since step takes a single action in this environment loop, we interleave
-            next_obs, reward_obj, done, _ = env.step(a1_action)
+            next_obs, reward_obj, done, info = env.step(a1_action)
             agent1.update(obs, a1_action, reward_obj.value, next_obs)
             total_reward += reward_obj.value
+            
+            if reward_obj.value < -0.1: ep_collisions += 1
+            if reward_obj.value > 0.5: ep_deliveries += 1
+            if "coordination_efficiency" in info: ep_coordination = info["coordination_efficiency"]
+            
             obs = next_obs
             
             if done: break
             
             # Agent 2 step
-            next_obs, reward_obj, done, _ = env.step(a2_action)
+            next_obs, reward_obj, done, info = env.step(a2_action)
+            
+            if reward_obj.value < -0.1: ep_collisions += 1
+            if reward_obj.value > 0.5: ep_deliveries += 1
+            if "coordination_efficiency" in info: ep_coordination = info["coordination_efficiency"]
+
             obs = next_obs
             
             if done: break
@@ -141,6 +157,10 @@ def run_online_rl():
         agent2.end_episode()
 
         rewards_per_episode.append(total_reward)
+        collision_rates.append(ep_collisions)
+        delivery_rates.append(ep_deliveries)
+        coordination_rates.append(ep_coordination)
+        
         print(f"\n[Episode {episode+1:02d}]")
         print(f"Reward: {total_reward:.2f}")
         print(f"Epsilon: {agent1.epsilon:.2f}")
@@ -157,33 +177,55 @@ def run_online_rl():
         pickle.dump(agent1.q_values, f)
     print("Saved Q-table to q_table.pkl")
 
-    return rewards_per_episode
+    return rewards_per_episode, collision_rates, delivery_rates, coordination_rates
 
 # -----------------------------
 # Plot Results
 # -----------------------------
-def plot_results(rewards):
-    plt.figure(figsize=(8,5))
+def plot_results(metrics):
+    rewards, collisions, deliveries, coordination = metrics
     
-    # Smooth the curve for better visual impact
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    
+    # 1. Reward Curve
     smoothed_rewards = [np.mean(rewards[max(0, i-5):i+1]) for i in range(len(rewards))]
+    axes[0, 0].plot(rewards, alpha=0.3, color='blue', label='Raw Reward')
+    axes[0, 0].plot(smoothed_rewards, color='blue', linewidth=2, marker='o', label='Smoothed Trend')
+    axes[0, 0].set_title("Reward Curve", fontweight='bold')
+    axes[0, 0].set_xlabel("Episode")
+    axes[0, 0].set_ylabel("Total Reward")
+    axes[0, 0].legend()
+    axes[0, 0].grid(True, linestyle='--', alpha=0.7)
     
-    plt.plot(rewards, alpha=0.3, color='blue', label='Raw Reward')
-    plt.plot(smoothed_rewards, color='blue', linewidth=2, marker='o', label='Smoothed Trend')
+    # 2. Collision Rate
+    axes[0, 1].plot(collisions, color='red', linewidth=2, marker='x')
+    axes[0, 1].set_title("Collision Rate", fontweight='bold')
+    axes[0, 1].set_xlabel("Episode")
+    axes[0, 1].set_ylabel("Total Collisions")
+    axes[0, 1].grid(True, linestyle='--', alpha=0.7)
     
-    plt.title("Online RL Learning Curve (Tabular Q-Learning)", fontsize=14, fontweight='bold')
-    plt.xlabel("Episode", fontsize=12)
-    plt.ylabel("Total Reward", fontsize=12)
-    plt.legend()
-    plt.grid(True, linestyle='--', alpha=0.7)
+    # 3. Delivery Rate
+    axes[1, 0].plot(deliveries, color='green', linewidth=2, marker='^')
+    axes[1, 0].set_title("Delivery Rate", fontweight='bold')
+    axes[1, 0].set_xlabel("Episode")
+    axes[1, 0].set_ylabel("Items Delivered")
+    axes[1, 0].grid(True, linestyle='--', alpha=0.7)
+    
+    # 4. Coordination Efficiency
+    axes[1, 1].plot(coordination, color='purple', linewidth=2, marker='s')
+    axes[1, 1].set_title("Coordination Efficiency", fontweight='bold')
+    axes[1, 1].set_xlabel("Episode")
+    axes[1, 1].set_ylabel("Efficiency Score")
+    axes[1, 1].grid(True, linestyle='--', alpha=0.7)
+    
+    fig.suptitle("Online RL Learning Metrics (Tabular Q-Learning)", fontsize=16, fontweight='bold')
     plt.tight_layout()
-
     plt.savefig("online_rl_curve.png", dpi=150)
-    print("Online RL completed - learning curve saved as 'online_rl_curve.png'")
+    print("Online RL completed - metrics grid saved as 'online_rl_curve.png'")
 
 # -----------------------------
 # MAIN
 # -----------------------------
 if __name__ == "__main__":
-    rewards = run_online_rl()
-    plot_results(rewards)
+    metrics = run_online_rl()
+    plot_results(metrics)

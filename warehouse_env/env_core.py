@@ -734,8 +734,33 @@ class WarehouseEnv:
         }
 
         # Upgrade 1: True partial observability — last-acting agent's view
+        self._validate_state()
         obs = self._make_obs(agent_id)
         return obs, Reward(value=normalized, breakdown=reward_components), self.done, info
+
+    def _validate_state(self):
+        robots = self.state_manager.robots
+
+        # Check duplicate positions
+        positions = [tuple(r["pos"]) for r in robots.values()]
+        if len(positions) != len(set(positions)):
+            print("⚠ WARNING: Duplicate robot positions detected")
+
+        # Battery validation
+        for agent_id, r in robots.items():
+            if r["battery"] < 0:
+                print(f"⚠ WARNING: {agent_id} battery below 0 → correcting")
+                r["battery"] = 0
+
+        # Carrying validation
+        for agent_id, r in robots.items():
+            valid_items = []
+            for item in r.get("carrying", []):
+                if item in ["item1", "item2", "item3"]:
+                    valid_items.append(item)
+                else:
+                    print(f"⚠ WARNING: Invalid carrying state for {agent_id}")
+            r["carrying"] = valid_items
 
     # ── Helpers ────────────────────────────────────────────────────────────────
     def _make_obs(self, agent_id: str) -> Observation:

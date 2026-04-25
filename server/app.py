@@ -83,29 +83,73 @@ def step(action: Action):
 # ── Predict (Trained RL Policy) ───────────────────────────────────────────────
 from pydantic import BaseModel
 import pickle
+import numpy as np
+
+Q_TABLE_PATH = "q_table.pkl"
+
+# Load Q-table
+q_table = {}
+if os.path.exists(Q_TABLE_PATH):
+    with open(Q_TABLE_PATH, "rb") as f:
+        q_table = pickle.load(f)
 
 class PredictRequest(BaseModel):
     agent_id: str
 
+def state_to_key(state, agent_id):
+    # Recreate the exact state representation used in online_rl.py
+    r1 = state.get("robots", {}).get(agent_id)
+    if not r1:
+        return (0, 0, False, False)
+        
+    pos = r1["pos"]
+    carrying = len(r1["carrying"]) > 0
+
+    obstacle_nearby = False
+    for dx, dy in [(0,1), (1,0), (0,-1), (-1,0)]:
+        nx, ny = pos[0]+dx, pos[1]+dy
+        if any(ob["pos"] == [nx, ny] for ob in state.get("obstacles", [])):
+            obstacle_nearby = True
+            break
+
+    if not carrying and state.get("inventory"):
+        target = state["inventory"][0]["pos"]
+    elif state.get("goal"):
+        target = state["goal"]
+    else:
+        return (0, 0, carrying, obstacle_nearby)
+        
+    dx = target[0] - pos[0]
+    dy = target[1] - pos[1]
+    return (int(np.sign(dx)), int(np.sign(dy)), carrying, obstacle_nearby)
+
 @app.post("/predict")
 def predict(req: PredictRequest):
-    """Returns the true optimal action from the saved Q-table."""
-    from online_rl import SimplePolicy
-    
-    # Load trained Q-table if it exists
-    q_table = {}
-    q_path = os.path.join(_ROOT, "q_table.pkl")
-    if os.path.exists(q_path):
-        with open(q_path, "rb") as f:
-            q_table = pickle.load(f)
-            
-    policy = SimplePolicy(req.agent_id)
-    policy.epsilon = 0.0  # Force pure exploitation (no random moves)
-    policy.q_values = q_table
-    
-    obs = env._make_obs()
-    action = policy.choose_action(obs)
-    return action.model_dump()
+    """Returns the true optimal action and q_values from the saved Q-table."""
+    state = env.state()
+    key = state_to_key(state, req.agent_id)
+
+    if key in q_table:
+        q_vals = q_table[key]
+        best_action = max(q_vals, key=q_vals.get)
+        
+        # Convert tuple action (e.g., ("move", "right")) to string direction
+        direction = best_action[1] if isinstance(best_action, tuple) else best_action
+        
+        return {
+            "agent_id": req.agent_id,
+            "action_type": "move",
+            "direction": direction,
+            "q_values": {str(k): v for k, v in q_vals.items()},
+            "source": "trained_policy"
+        }
+
+    return {
+        "agent_id": req.agent_id,
+        "action_type": "move",
+        "direction": "right",
+        "source": "fallback"
+    }
 
 
 # ── State ─────────────────────────────────────────────────────────────────────

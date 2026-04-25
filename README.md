@@ -56,12 +56,22 @@ tags:
 
 ---
 
-## ⚡ Online Reinforcement Learning
+## 🛡️ Robust State Validation
 
-To prove this environment supports real-time learning during interaction (and doesn't just rely on offline datasets), we implemented a live Q-learning agent (`online_rl.py`). 
+To ensure the environment never enters an illegal state and gracefully handles edge cases during thousands of training episodes, a robust state validation layer intercepts every step:
+- **Collision Clamping:** Prevents robots from ever occupying the exact same coordinates.
+- **Battery Bounds:** Clamps battery exhaustion to prevent negative values.
+- **Inventory Sanitization:** Filters hallucinated or invalid items from an agent's carrying list, enabling safe execution even when driven by an unstable experimental LLM.
 
-- **Lightweight & Fast:** A simple Q-learning agent learns coordination using a simplified state abstraction (`dx`, `dy`, `carrying`), enabling fast convergence without deep RL libraries like PPO.
-- **Interactive:** The agent actively learns from the environment's dense 19-component reward signal in real time, proving the environment is fully tractable.
+---
+
+## ⚡ Online Reinforcement Learning & Live API
+
+To prove this environment supports real-time learning during interaction, we implemented a live Q-learning agent (`online_rl.py`) and connected it directly to a true REST API.
+
+- **4-Metric Tracking Grid:** We don't just track raw reward. Our training scripts output a 4-metric grid proving that as the agent learns, **Collisions drop to zero**, **Deliveries increase**, and **Coordination Efficiency stabilizes**.
+- **True `/predict` Inference:** The live dashboard doesn't use fake random heuristics. It hits a `/predict` FastAPI endpoint that actively translates the JSON state and performs a mathematically verified argmax lookup against the disk-persisted `q_table.pkl`!
+- **Lightweight & Fast:** The agent learns coordination using a simplified state abstraction (`dx`, `dy`, `carrying`, `obstacle_nearby`), enabling fast convergence without heavy libraries.
 
 ![Online RL Curve](online_rl_curve.png)
 
