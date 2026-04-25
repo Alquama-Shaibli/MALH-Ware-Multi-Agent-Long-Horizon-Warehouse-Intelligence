@@ -138,10 +138,11 @@ def run_episode(env: WarehouseEnv, task: str, difficulty: int = 0) -> tuple:
     """
     obs   = env.reset(task=task, difficulty=difficulty)
     done  = False
-    total_reward = 0.0
-    steps        = 0
-    limit        = MAX_STEPS[task]
-    info: dict   = {}
+    total_reward    = 0.0
+    steps           = 0
+    limit           = MAX_STEPS[task]
+    info: dict      = {}
+    ep_interventions = 0          # step-level accumulator (oversight resets each episode)
 
     while not done and steps < limit:
         steps += 1
@@ -151,9 +152,11 @@ def run_episode(env: WarehouseEnv, task: str, difficulty: int = 0) -> tuple:
             action = heuristic_policy(obs, env, agent_id)
             obs, reward, done, info = env.step(action)
             total_reward += reward.value
+            if info.get("fleet_ai_intervened", False) or info.get("fleet_ai_intervention", False):
+                ep_interventions += 1
 
     oversight = info.get("oversight", {})
-    return total_reward, steps, info.get("completed_orders", 0), oversight
+    return total_reward, steps, info.get("completed_orders", 0), oversight, ep_interventions
 
 
 # ── Feature 3: Baseline runner (Fleet AI disabled) ───────────────────────────
@@ -175,7 +178,7 @@ def run_baseline(verbose: bool = False) -> Dict[str, float]:
         print("\n--- Baseline run (Fleet AI DISABLED) ---")
 
     for ep_idx, task in enumerate(CURRICULUM):
-        total_reward, steps, completed, _ = run_episode(env, task, difficulty=0)
+        total_reward, steps, completed, _, _ = run_episode(env, task, difficulty=0)
         task_rewards[task].append(total_reward)
 
         if verbose:
@@ -228,15 +231,14 @@ def run_with_fleet_ai(verbose: bool = True) -> tuple:
             prev_task = task
 
         diff = difficulty_levels[task]
-        total_reward, steps, completed, oversight = run_episode(env, task, difficulty=diff)
+        total_reward, steps, completed, oversight, ep_interventions = run_episode(env, task, difficulty=diff)
 
         all_rewards.append(total_reward)
         all_tasks.append(task)
         task_rewards[task].append(total_reward)
         difficulty_history.append(diff)
 
-        interventions = oversight.get("intervention_count", 0)
-        intervention_counts.append(interventions)
+        intervention_counts.append(ep_interventions)
 
         # ── Theme 4A: Adaptive difficulty adjustment ───────────────────────
         # Normalise total_reward to [0,1] range for comparison against thresholds
@@ -259,7 +261,7 @@ def run_with_fleet_ai(verbose: bool = True) -> tuple:
         if verbose:
             n_orders   = len(env.state_manager.orders)
             status     = "SUCCESS" if completed == n_orders else ("PARTIAL" if completed > 0 else "FAIL")
-            fleet_note = f"FleetAI:{interventions}" if interventions > 0 else "FleetAI:idle"
+            fleet_note = f"FleetAI:{ep_interventions}" if ep_interventions > 0 else "FleetAI:idle"
             print(
                 f"  [EP {ep_idx + 1:2d}/{TOTAL_EPISODES}] "
                 f"Task={task:6s}  D={diff}  "
@@ -361,9 +363,33 @@ def main():
     ax2.legend(fontsize=10)
     ax2.grid(True, alpha=0.3, axis="y")
 
-    # Panel 3: Fleet AI intervention activity
+    # Panel 3: Fleet AI intervention activity — annotated bar chart
     ax3 = axes[2]
-    ax3.bar(range(1, TOTAL_EPISODES + 1), intervention_counts, color=colors, alpha=0.85)
+    episodes = list(range(1, TOTAL_EPISODES + 1))
+    if sum(intervention_counts) == 0:
+        # Visible fallback — shows bars at a synthetic minimum so panel isn't empty
+        ax3.bar(episodes, [1] * TOTAL_EPISODES, color="#94A3B8", alpha=0.35, width=0.8)
+        ax3.text(0.5, 0.55, "Fleet AI rules did not fire this run",
+                 ha="center", va="center", transform=ax3.transAxes,
+                 fontsize=10, color="#475569", style="italic")
+        ax3.text(0.5, 0.40, "(lower task difficulty = fewer critical battery events)",
+                 ha="center", va="center", transform=ax3.transAxes,
+                 fontsize=8, color="#94A3B8")
+        ax3.set_ylim(0, 5)
+    else:
+        ax3.bar(episodes, intervention_counts, color=colors, alpha=0.85, width=0.8)
+        mean_val = sum(intervention_counts) / max(len(intervention_counts), 1)
+        ax3.axhline(y=mean_val, color="#1E293B", linestyle="--", linewidth=1.5,
+                    label=f"Mean: {mean_val:.1f}")
+        # Annotate top-20% episodes
+        threshold = sorted(intervention_counts)[-max(1, TOTAL_EPISODES // 5)]
+        for i, cnt in enumerate(intervention_counts):
+            if cnt >= threshold and cnt > 0:
+                ax3.annotate(str(cnt), xy=(i + 1, cnt),
+                             xytext=(0, 4), textcoords="offset points",
+                             ha="center", fontsize=7, fontweight="bold", color="#1E293B")
+        ax3.legend(fontsize=9, loc="upper right")
+        ax3.set_ylim(bottom=0)
     ax3.axvline(x=10.5, color="#555", linestyle="--", alpha=0.6)
     ax3.axvline(x=20.5, color="#222", linestyle="--", alpha=0.6)
     ax3.set_xlabel("Episode",                fontsize=12)

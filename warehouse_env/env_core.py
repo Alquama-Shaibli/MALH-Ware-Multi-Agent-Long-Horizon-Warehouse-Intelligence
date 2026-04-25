@@ -38,16 +38,18 @@ class FleetAI:
         self.intervention_count: int = 0
         self.efficiency_improvements: int = 0
         self._last_explanation: str = ""
+        self._last_intervention_type: str = ""
         # Feature 1: Predictive tracking
         self._last_prediction: Dict[str, Any] = {}
         self._prediction_used: bool = False
 
     def reset(self) -> None:
-        self.intervention_count = 0
+        self.intervention_count      = 0
         self.efficiency_improvements = 0
-        self._last_explanation = ""
-        self._last_prediction = {}
-        self._prediction_used = False
+        self._last_explanation       = ""
+        self._last_intervention_type = ""
+        self._last_prediction        = {}
+        self._prediction_used        = False
 
     def intervene(
         self,
@@ -57,7 +59,6 @@ class FleetAI:
     ) -> Tuple[Action, bool, str]:
         """
         Evaluate the intended action. May return an override Action.
-
         Returns: (final_action, was_overridden, explanation_string)
         """
         robot = sm.robots.get(agent_id)
@@ -70,14 +71,47 @@ class FleetAI:
         pos     = list(robot["pos"])
         cx, cy  = sm.charge_station
         gx, gy  = sm.goal
+        carrying = robot.get("carrying", [])
 
         # ── Feature 1: Predictive risk assessment BEFORE intervention ─────
         prediction = self._predict_risks(agent_id, robot, sm)
         self._last_prediction = prediction
         self._prediction_used = False  # set True below if prediction guides decision
 
+        # ── Rule 0: Idle redirect — if agent idle 3+ steps and items remain ─
+        idle = sm.idle_steps.get(agent_id, 0)
+        if (
+            idle >= 3
+            and intended_action.action_type == "move"
+            and not carrying
+        ):
+            # Find nearest unclaimed item
+            unclaimed = {
+                item: loc for item, loc in sm.inventory.items()
+                if not any(item in r["carrying"] for r in sm.robots.values())
+            }
+            if unclaimed:
+                best_item, best_loc = min(
+                    unclaimed.items(),
+                    key=lambda kv: abs(kv[1][0] - pos[0]) + abs(kv[1][1] - pos[1]),
+                )
+                tx, ty = best_loc
+                dx, dy = tx - pos[0], ty - pos[1]
+                direction = (("down" if dx > 0 else "up") if abs(dx) >= abs(dy)
+                             else ("right" if dy > 0 else "left"))
+                override    = Action(agent_id=agent_id, action_type="move", direction=direction)
+                explanation = (
+                    f"{agent_id} idle_redirect toward {best_item} (idle={idle}) "
+                    f"— FleetAI efficiency redirect."
+                )
+                self.intervention_count      += 1
+                self.efficiency_improvements += 1
+                self._last_explanation        = explanation
+                self._last_intervention_type  = "idle_redirect"
+                return override, True, explanation
+
         # ── Rule 1: At charge station with critical battery ────────────────
-        if battery <= 10 and intended_action.action_type != "charge":
+        if battery <= 20 and intended_action.action_type != "charge":
             if pos == [cx, cy]:
                 override     = Action(agent_id=agent_id, action_type="charge")
                 explanation  = (
@@ -87,12 +121,14 @@ class FleetAI:
                 self.intervention_count     += 1
                 self.efficiency_improvements += 1
                 self._last_explanation       = explanation
-                self._prediction_used        = prediction["battery_risk"]  # True if risk was foreseen
+                self._last_intervention_type = "battery_save"
+                self._prediction_used        = prediction["battery_risk"]
                 return override, True, explanation
 
             # ── Rule 2: Navigate to charge station (critical battery) ──────
             dx, dy = cx - pos[0], cy - pos[1]
-            direction = ("down" if dx > 0 else "up") if abs(dx) >= abs(dy) else ("right" if dy > 0 else "left")
+            direction = (("down" if dx > 0 else "up") if abs(dx) >= abs(dy)
+                         else ("right" if dy > 0 else "left"))
             override    = Action(agent_id=agent_id, action_type="move", direction=direction)
             explanation = (
                 f"{agent_id} rerouted toward charge station (battery={battery:.0f}) "
@@ -101,30 +137,32 @@ class FleetAI:
             self.intervention_count     += 1
             self.efficiency_improvements += 1
             self._last_explanation       = explanation
+            self._last_intervention_type = "battery_save"
             self._prediction_used        = prediction["battery_risk"]
             return override, True, explanation
 
         # ── Rule 3: Wasteful charge when battery is high ───────────────────
         if (
             intended_action.action_type == "charge"
-            and battery >= 90
-            and robot["carrying"]
+            and battery >= 80
+            and carrying
             and sm.charging_agent is None
         ):
             dx, dy = gx - pos[0], gy - pos[1]
-            direction = ("down" if dx > 0 else "up") if abs(dx) >= abs(dy) else ("right" if dy > 0 else "left")
+            direction = (("down" if dx > 0 else "up") if abs(dx) >= abs(dy)
+                         else ("right" if dy > 0 else "left"))
             override    = Action(agent_id=agent_id, action_type="move", direction=direction)
             explanation = (
                 f"{agent_id} redirected to deliver (battery={battery:.0f}, "
-                f"carrying={robot['carrying']}) — FleetAI efficiency optimization."
+                f"carrying={carrying}) — FleetAI efficiency optimization."
             )
-            self.intervention_count += 1
-            self._last_explanation   = explanation
+            self.intervention_count      += 1
+            self._last_explanation        = explanation
+            self._last_intervention_type  = "efficiency_redirect"
             return override, True, explanation
 
         # ── Rule 4: Dependency violation flag ─────────────────────────────
         if intended_action.action_type == "drop" and pos == [gx, gy]:
-            carrying = robot["carrying"]
             for order in sm.orders:
                 oid = order["id"]
                 if oid in sm.completed_orders:
@@ -136,13 +174,37 @@ class FleetAI:
                             f"{agent_id} attempted {oid} but dependency '{dep}' not met "
                             f"— FleetAI flagged sequencing violation."
                         )
-                        self.intervention_count += 1
-                        self._last_explanation   = explanation
+                        self.intervention_count     += 1
+                        self._last_explanation       = explanation
+                        self._last_intervention_type = "dependency_flag"
                         # Do NOT block — env handles the gate; just log
                         return intended_action, True, explanation
 
-        self._last_explanation = ""
-        self._prediction_used  = False
+        # ── Rule 5: Collision avoidance ────────────────────────────────────
+        if intended_action.action_type == "move" and intended_action.direction:
+            dx_map = {"up": -1, "down": 1, "left": 0, "right": 0}
+            dy_map = {"up": 0,  "down": 0, "left": -1, "right": 1}
+            d = intended_action.direction
+            nx = pos[0] + dx_map.get(d, 0)
+            ny = pos[1] + dy_map.get(d, 0)
+            # Check if another agent is at the destination
+            for aid2, r2 in sm.robots.items():
+                if aid2 != agent_id and r2["pos"] == [nx, ny]:
+                    # Redirect perpendicularly
+                    alt_dir = "down" if d in ("left", "right") else "right"
+                    override    = Action(agent_id=agent_id, action_type="move", direction=alt_dir)
+                    explanation = (
+                        f"{agent_id} collision_avoid: redirected {d}->{alt_dir} "
+                        f"(would hit {aid2}) — FleetAI collision prevention."
+                    )
+                    self.intervention_count     += 1
+                    self._last_explanation       = explanation
+                    self._last_intervention_type = "collision_avoid"
+                    return override, True, explanation
+
+        self._last_explanation       = ""
+        self._last_intervention_type = ""
+        self._prediction_used        = False
         return intended_action, False, ""
 
     # ── Feature 1: Predictive Risk Assessment ─────────────────────────────────
