@@ -22,18 +22,45 @@ Themes: Multi-Agent Reasoning, Long-Horizon Planning, World Modeling, Self-Impro
 
 ## Links (required for judging)
 
-- **Hugging Face Space**: `https://huggingface.co/spaces/Alquama-Shaibli/smart-warehouse-env`
-- **<2 minute demo video**: *(recording in progress)*
-- **Mini-blog (Hugging Face post)**: *(publishing in progress)*
+- **Hugging Face Space (runnable env)**: `https://huggingface.co/spaces/AlquamaShaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence`
+- **<2 minute demo video**: *(ADD LINK — required)*
+- **Mini-blog (Hugging Face post)**: *(ADD LINK — required)*
+
+## Submission checklist (fast judge review)
+
+- **Minimum requirements**
+  - **OpenEnv (latest)**: `openenv.yaml` + `openenv-core>=0.2.0`
+  - **Training script (TRL / Unsloth)**: `train_llm.py` (TRL `SFTTrainer` when deps available; CPU fallback)
+  - **Evidence of training**: `training_curve.png`, `self_improvement_curve.png`, `sft_training_curve.png`, `before_after.json`
+  - **Mini-blog + <2 min video**: *(ADD LINKS ABOVE)*
+  - **Hosted on Hugging Face Spaces**: link above
+
+- **Theme coverage**
+  - **Theme #1 Multi-Agent Interactions**: cooperation bonus + charge contention + intent conflict + Theory of Mind (`intent_conflict`, `coordination_efficiency`, `agent_intent`, `beliefs`)
+  - **Theme #2 Long-Horizon Planning**: dependency chain + 300-step horizon (`planning_failures`, `long_horizon_score`)
+  - **Theme #3 World Modeling**: partial observability + stochastic relocation + dynamic obstacles (`belief_error` proxy, `/state`)
+  - **Theme #4 Self-Improvement**: adaptive curriculum (`curriculum_level`) + SFT pipeline (`train_llm.py`)
+
+- **One-command validation**
+
+```bash
+python train_llm.py --validate
+```
+
+- **Run server (OpenEnv endpoints)**
+
+```bash
+uvicorn server.app:app --host 0.0.0.0 --port 8000
+```
 
 ## 🔗 Resources
 
 | Resource | Link |
 |---|---|
-| 🤗 Hugging Face Space | [`Alquama-Shaibli/smart-warehouse-env`](https://huggingface.co/spaces/Alquama-Shaibli/smart-warehouse-env) |
+| 🤗 Hugging Face Space | [`AlquamaShaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence`](https://huggingface.co/spaces/AlquamaShaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence) |
 | 📓 Colab Notebook (inference demo) | [Open in Colab](https://colab.research.google.com/drive/1W1NMqiOcWIAJK0XWdtSaVpZMq3NmD06p) |
-| 🎬 Demo Video (< 2 min) | *(recording in progress)* |
-| 📝 Mini-blog Post | *(publishing in progress)* |
+| 🎬 Demo Video (< 2 min) | *(ADD LINK — required)* |
+| 📝 Mini-blog Post | *(ADD LINK — required)* |
 | 💾 Source Code | [GitHub](https://github.com/Alquama-Shaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence) |
 
 ## Theme mapping (how this matches OpenEnv Hackathon themes)
