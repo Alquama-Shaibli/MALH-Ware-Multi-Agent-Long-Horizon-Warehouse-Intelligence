@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Warehouse Fleet Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #38bdf8;
+            margin-bottom: 5px;
+        }
+        p.subtitle {
+            color: #94a3b8;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+        canvas {
+            background-color: #334155;
+            border-radius: 8px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .panel {
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .card {
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #38bdf8;
+        }
+        .card h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .value {
+            font-weight: bold;
+            color: #f8fafc;
+        }
+        .agent1-color { color: #60a5fa; }
+        .agent2-color { color: #f472b6; }
+        .legend {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 12px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .box {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            background: #38bdf8;
+            color: #0f172a;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background: #0ea5e9; }
+        button.danger { background: #ef4444; color: white; }
+        button.danger:hover { background: #dc2626; }
+    </style>
+</head>
+<body>
+
+    <h1>Fleet AI Live Dashboard</h1>
+    <p class="subtitle">Real-time Multi-Agent Warehouse Monitoring</p>
+
+    <div class="container">
+        <div>
+            <canvas id="gridCanvas" width="500" height="500"></canvas>
+            <div class="controls">
+                <button onclick="fetchState()">Refresh State</button>
+                <button class="danger" onclick="resetEnv('hard')">Reset (Hard)</button>
+                <button class="danger" onclick="resetEnv('easy')">Reset (Easy)</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="card">
+                <h3>System Status</h3>
+                <div class="stat-row"><span>Grid Size:</span> <span class="value" id="gridSize">-</span></div>
+                <div class="stat-row"><span>Completed Orders:</span> <span class="value" id="compOrders">-</span></div>
+                <div class="stat-row"><span>Steps Taken:</span> <span class="value" id="steps">-</span></div>
+            </div>
+
+            <div class="card" style="border-left-color: #60a5fa;">
+                <h3>Agent 1 🔵</h3>
+                <div class="stat-row"><span>Position:</span> <span class="value agent1-color" id="a1Pos">-</span></div>
+                <div class="stat-row"><span>Battery:</span> <span class="value agent1-color" id="a1Bat">-</span></div>
+                <div class="stat-row"><span>Carrying:</span> <span class="value agent1-color" id="a1Carry">-</span></div>
+            </div>
+
+            <div class="card" style="border-left-color: #f472b6;">
+                <h3>Agent 2 🌸</h3>
+                <div class="stat-row"><span>Position:</span> <span class="value agent2-color" id="a2Pos">-</span></div>
+                <div class="stat-row"><span>Battery:</span> <span class="value agent2-color" id="a2Bat">-</span></div>
+                <div class="stat-row"><span>Carrying:</span> <span class="value agent2-color" id="a2Carry">-</span></div>
+            </div>
+
+            <div class="card" style="border-left-color: #94a3b8;">
+                <h3>Legend</h3>
+                <div class="legend">
+                    <div class="legend-item"><div class="box" style="background:#60a5fa; border-radius:50%"></div> Agent 1</div>
+                    <div class="legend-item"><div class="box" style="background:#f472b6; border-radius:50%"></div> Agent 2</div>
+                    <div class="legend-item"><div class="box" style="background:#fbbf24"></div> Item</div>
+                    <div class="legend-item"><div class="box" style="background:#ef4444"></div> Obstacle</div>
+                    <div class="legend-item"><div class="box" style="background:#4ade80"></div> Goal (Drop)</div>
+                    <div class="legend-item"><div class="box" style="background:#a855f7"></div> Charger</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gridCanvas');
+        const ctx = canvas.getContext('2d');
+        let pollingInterval = null;
+
+        function drawState(state) {
+            const [cols, rows] = state.grid_size;
+            const cellW = canvas.width / cols;
+            const cellH = canvas.height / rows;
+
+            // Clear background
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid lines
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1;
+            for(let i=0; i<=cols; i++) {
+                ctx.beginPath(); ctx.moveTo(i*cellW, 0); ctx.lineTo(i*cellW, canvas.height); ctx.stroke();
+            }
+            for(let i=0; i<=rows; i++) {
+                ctx.beginPath(); ctx.moveTo(0, i*cellH); ctx.lineTo(canvas.width, i*cellH); ctx.stroke();
+            }
+
+            // Draw Charger
+            if(state.charge_station) {
+                const [cx, cy] = state.charge_station;
+                ctx.fillStyle = '#a855f7';
+                ctx.fillRect(cx*cellW + 2, cy*cellH + 2, cellW - 4, cellH - 4);
+            }
+
+            // Draw Goal
+            if(state.goal) {
+                const [gx, gy] = state.goal;
+                ctx.fillStyle = '#4ade80';
+                ctx.fillRect(gx*cellW + 2, gy*cellH + 2, cellW - 4, cellH - 4);
+            }
+
+            // Draw Obstacles
+            if(state.obstacles) {
+                ctx.fillStyle = '#ef4444';
+                state.obstacles.forEach(obs => {
+                    // Extract x,y robustly
+                    let ox, oy;
+                    if(Array.isArray(obs)) [ox, oy] = obs;
+                    else if(obs.pos) [ox, oy] = obs.pos;
+                    if(ox !== undefined && oy !== undefined) {
+                        ctx.fillRect(ox*cellW + 2, oy*cellH + 2, cellW - 4, cellH - 4);
+                    }
+                });
+            }
+
+            // Draw Items
+            if(state.inventory) {
+                ctx.fillStyle = '#fbbf24';
+                state.inventory.forEach(item => {
+                    let ix, iy;
+                    if(Array.isArray(item)) [ix, iy] = item;
+                    else if(item.pos) [ix, iy] = item.pos;
+                    if(ix !== undefined && iy !== undefined) {
+                        ctx.beginPath();
+                        ctx.arc(ix*cellW + cellW/2, iy*cellH + cellH/2, Math.min(cellW, cellH)*0.3, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                });
+            }
+
+            // Draw Robots
+            if(state.robots) {
+                const colors = {'agent1': '#60a5fa', 'agent2': '#f472b6'};
+                Object.keys(state.robots).forEach(aid => {
+                    const r = state.robots[aid];
+                    const [rx, ry] = r.pos;
+                    ctx.fillStyle = colors[aid] || '#fff';
+                    ctx.beginPath();
+                    ctx.arc(rx*cellW + cellW/2, ry*cellH + cellH/2, Math.min(cellW, cellH)*0.4, 0, Math.PI*2);
+                    ctx.fill();
+                    // Battery indicator ring
+                    ctx.strokeStyle = r.battery < 20 ? '#ef4444' : '#4ade80';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                });
+            }
+        }
+
+        function updateUI(state) {
+            document.getElementById('gridSize').innerText = state.grid_size.join(' x ');
+            document.getElementById('compOrders').innerText = state.completed_orders ? state.completed_orders.length : 0;
+            document.getElementById('steps').innerText = state.steps || 0;
+
+            if(state.robots && state.robots['agent1']) {
+                const r = state.robots['agent1'];
+                document.getElementById('a1Pos').innerText = r.pos.join(',');
+                document.getElementById('a1Bat').innerText = Math.round(r.battery) + '%';
+                document.getElementById('a1Carry').innerText = r.carrying.length > 0 ? r.carrying.join(',') : 'None';
+            }
+            if(state.robots && state.robots['agent2']) {
+                const r = state.robots['agent2'];
+                document.getElementById('a2Pos').innerText = r.pos.join(',');
+                document.getElementById('a2Bat').innerText = Math.round(r.battery) + '%';
+                document.getElementById('a2Carry').innerText = r.carrying.length > 0 ? r.carrying.join(',') : 'None';
+            }
+        }
+
+        async function fetchState() {
+            try {
+                // If hitting an error due to no active episode, it might fail, handled gracefully
+                const res = await fetch('/state');
+                const state = await res.json();
+                if(state.grid_size) {
+                    drawState(state);
+                    updateUI(state);
+                }
+            } catch (err) {
+                console.error("Fetch state error:", err);
+            }
+        }
+
+        async function resetEnv(task) {
+            try {
+                await fetch('/reset', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({task: task})
+                });
+                fetchState();
+            } catch (err) {
+                console.error("Reset error:", err);
+            }
+        }
+
+        // Poll every 500ms
+        pollingInterval = setInterval(fetchState, 500);
+        
+        // Initial fetch
+        fetchState();
+    </script>
+</body>
+</html>

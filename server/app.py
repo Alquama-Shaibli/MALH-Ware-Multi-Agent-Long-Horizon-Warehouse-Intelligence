@@ -26,25 +26,29 @@ app = FastAPI(
 env = WarehouseEnv()
 
 
-# ── Health Check ──────────────────────────────────────────────────────────────
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+# Ensure static directory exists
+STATIC_DIR = os.path.join(_ROOT, "static")
+os.makedirs(STATIC_DIR, exist_ok=True)
+
+# Mount static directory for JS/CSS assets
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# ── UI Visualizer Dashboard ───────────────────────────────────────────────────
 @app.get("/")
-def root():
-    return {
-        "status":   "running",
-        "version":  "3.0.0",
-        "agents":   ["agent1", "agent2"],
-        "observer": "fleet_ai",
-        "tasks":    ["easy", "medium", "hard"],
-        "features": [
-            "multi-agent-cooperation",
-            "fleet-ai-oversight",
-            "order-dependencies",
-            "charge-contention",
-            "partial-observability",
-            "curriculum-learning",
-            "long-horizon-planning",
-        ],
-    }
+def serve_ui():
+    """Serves the 2D HTML5 Canvas Visualizer Dashboard."""
+    index_path = os.path.join(STATIC_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"error": "UI not found. Please ensure static/index.html exists."}
+
+# ── Health Check ──────────────────────────────────────────────────────────────
+@app.get("/health")
+def health_check():
+    return {"status": "running", "ui": "enabled"}
 
 
 # ── Reset ─────────────────────────────────────────────────────────────────────

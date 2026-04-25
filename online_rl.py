@@ -50,7 +50,18 @@ class SimplePolicy:
         dx, dy = tx - rx, ty - ry
         sdx = 1 if dx > 0 else (-1 if dx < 0 else 0)
         sdy = 1 if dy > 0 else (-1 if dy < 0 else 0)
-        return (sdx, sdy, is_carrying)
+        
+        # Check for adjacent obstacles
+        obstacle_nearby = False
+        if hasattr(obs, 'obstacles') and obs.obstacles:
+            for obs_pos in obs.obstacles:
+                # obs_pos could be a dict/list/object
+                ox, oy = obs_pos if isinstance(obs_pos, (list, tuple)) else (obs_pos['pos'] if isinstance(obs_pos, dict) and 'pos' in obs_pos else obs_pos.pos)
+                if abs(ox - rx) <= 1 and abs(oy - ry) <= 1:
+                    obstacle_nearby = True
+                    break
+
+        return (sdx, sdy, is_carrying, obstacle_nearby)
 
     def choose_action(self, obs):
         state = self._get_state(obs)
