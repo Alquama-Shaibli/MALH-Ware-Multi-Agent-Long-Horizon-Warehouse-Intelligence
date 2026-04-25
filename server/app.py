@@ -223,6 +223,15 @@ def state():
     """Return full current environment state (all agents, orders, obstacles) tailored for the UI."""
     raw_state = env.state()
     sm = env.state_manager
+
+    # Only show unclaimed items (not currently being carried by any agent)
+    all_held = {item for r in raw_state.get("robots", {}).values() for item in r.get("carrying", [])}
+    unclaimed_items = [
+        {"x": loc[0], "y": loc[1]}
+        for item_id, loc in raw_state.get("inventory", {}).items()
+        if item_id not in all_held
+    ]
+
     return {
         "grid_size": raw_state.get("grid_size", 10),
         "agents": {
@@ -233,12 +242,12 @@ def state():
                 "carrying": len(r["carrying"]) > 0
             } for aid, r in raw_state.get("robots", {}).items()
         },
-        "items": [
-            {"x": loc[0], "y": loc[1]} for loc in raw_state.get("inventory", {}).values()
-        ],
+        "items": unclaimed_items,
         "obstacles": [
             {"x": obs[0], "y": obs[1]} for obs in raw_state.get("obstacles", [])
         ],
+        "goal": {"x": raw_state["goal"][0], "y": raw_state["goal"][1]} if raw_state.get("goal") else None,
+        "charge_station": {"x": raw_state["charge_station"][0], "y": raw_state["charge_station"][1]} if raw_state.get("charge_station") else None,
         "deliveries": len(raw_state.get("completed_orders", [])),
         "collisions": getattr(sm, "collisions", 0) + getattr(sm, "agent_collisions", 0)
     }
