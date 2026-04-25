@@ -296,34 +296,67 @@
           }
         }
 
-        async function stepEnv() {
-            // In a real environment, we would fetch optimal actions, but the prompt specified explicit actions
-            try {
-              let r1 = await fetch("/step", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({
-                  agent_id: "agent1",
-                  action_type: "move",
-                  direction: "right"
-                })
-              });
-              let d1 = await r1.json();
-              updateGraph(d1.reward);
+        function showOverlay(msg, color, duration=1500) {
+            const el = document.getElementById('overlayMsg');
+            if (!el) return;
+            el.innerText = msg;
+            el.style.color = color;
+            el.style.opacity = 1;
+            setTimeout(() => { el.style.opacity = 0; }, duration);
+        }
 
-              let r2 = await fetch("/step", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({
-                  agent_id: "agent2",
-                  action_type: "move",
-                  direction: "left"
-                })
-              });
-              let d2 = await r2.json();
-              updateGraph(d2.reward);
-            } catch (err) {
-                console.error("Step error:", err);
+        async function doAgentStep(agentId) {
+            // 1. Get action from RL policy (trained_policy or heuristic_fallback)
+            const predRes = await fetch('/predict', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({agent_id: agentId})
+            });
+            const actionData = await predRes.json();
+
+            // 2. Build step body — include action_type correctly (pick/drop/charge/move)
+            const stepBody = {
+                agent_id: agentId,
+                action_type: actionData.action_type || "move",
+                direction: actionData.direction || null
+            };
+
+            // 3. Execute action
+            const res = await fetch('/step', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(stepBody)
+            });
+            return await res.json();
+        }
+
+        async function stepEnv() {
+            try {
+                // Step BOTH agents every tick for coordinated warehouse simulation
+                const [d1, d2] = await Promise.all([
+                    doAgentStep("agent1"),
+                    doAgentStep("agent2")
+                ]);
+
+                const reward = (d1.reward || 0) + (d2.reward || 0);
+                updateGraph(reward);
+
+                // Fleet AI flash on any intervention
+                const canvasContainer = document.getElementById('canvasContainer');
+                const explanation = (d1.info && d1.info.fleet_ai_explanation) || (d2.info && d2.info.fleet_ai_explanation);
+                if (explanation) {
+                    canvasContainer.classList.add('fleet-ai-flash');
+                    showOverlay("⚡ " + explanation, "#06b6d4", 2500);
+                    setTimeout(() => canvasContainer.classList.remove('fleet-ai-flash'), 500);
+                }
+
+                if (d1.done || d2.done) {
+                    showOverlay("✅ Episode Complete! Resetting...", "#22c55e", 2000);
+                    await new Promise(r => setTimeout(r, 1500));
+                    await resetEnv('easy');
+                }
+            } catch(e) {
+                console.error("Step error:", e);
             }
         }
 

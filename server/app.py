@@ -98,31 +98,43 @@ class PredictRequest(BaseModel):
     agent_id: str
 
 def state_to_key(state, agent_id):
-    # Recreate the exact state representation used in online_rl.py
+    """Mirror of online_rl.py SimplePolicy._get_state() — must stay in sync."""
     r1 = state.get("robots", {}).get(agent_id)
     if not r1:
-        return (0, 0, False, False)
-        
+        return (0, 0, False, False, False)
+
     pos = r1["pos"]
     carrying = len(r1["carrying"]) > 0
+    battery = r1.get("battery", 100)
+    low_battery = battery < 20
 
     obstacle_nearby = False
     for dx, dy in [(0,1), (1,0), (0,-1), (-1,0)]:
         nx, ny = pos[0]+dx, pos[1]+dy
-        if any(ob["pos"] == [nx, ny] for ob in state.get("obstacles", [])):
+        if any(list(ob) == [nx, ny] if isinstance(ob, list) else ob.get("pos") == [nx, ny]
+               for ob in state.get("obstacles", [])):
             obstacle_nearby = True
             break
 
-    if not carrying and state.get("inventory"):
-        target = state["inventory"][0]["pos"]
-    elif state.get("goal"):
+    # Determine target position
+    if carrying and state.get("goal"):
         target = state["goal"]
+    elif state.get("inventory"):
+        inv = state["inventory"]
+        if isinstance(inv, dict):
+            first_item = next(iter(inv.values()), None)
+            target = first_item if first_item else pos
+        elif isinstance(inv, list) and len(inv) > 0:
+            item = inv[0]
+            target = item.get("pos", pos) if isinstance(item, dict) else item
+        else:
+            target = pos
     else:
-        return (0, 0, carrying, obstacle_nearby)
-        
+        target = pos
+
     dx = target[0] - pos[0]
     dy = target[1] - pos[1]
-    return (int(np.sign(dx)), int(np.sign(dy)), carrying, obstacle_nearby)
+    return (max(-1, min(1, dx)), max(-1, min(1, dy)), carrying, obstacle_nearby, low_battery)
 
 @app.post("/predict")
 def predict(req: PredictRequest):
@@ -133,17 +145,51 @@ def predict(req: PredictRequest):
     if key in q_table:
         q_vals = q_table[key]
         best_action = max(q_vals, key=q_vals.get)
-        
-        # Convert tuple action (e.g., ("move", "right")) to string direction
-        direction = best_action[1] if isinstance(best_action, tuple) else best_action
-        
+
+        # best_action is a tuple like ("move", "right") or ("pick", None)
+        if isinstance(best_action, tuple):
+            action_type = best_action[0]
+            direction = best_action[1]  # None for pick/drop/charge
+        else:
+            action_type = "move"
+            direction = best_action
+
         return {
             "agent_id": req.agent_id,
-            "action_type": "move",
+            "action_type": action_type,
             "direction": direction,
             "q_values": {str(k): v for k, v in q_vals.items()},
             "source": "trained_policy"
         }
+
+    # Fallback: simple heuristic — navigate toward nearest item
+    robots = state.get("robots", {})
+    robot = robots.get(req.agent_id)
+    if robot:
+        pos = robot["pos"]
+        battery = robot.get("battery", 100)
+        carrying = len(robot.get("carrying", [])) > 0
+        inventory = state.get("inventory", {})
+        goal = state.get("goal", [0, 0])
+
+        if battery < 15:
+            return {"agent_id": req.agent_id, "action_type": "charge", "direction": None, "source": "heuristic_fallback"}
+
+        if carrying:
+            tx, ty = goal
+        elif inventory:
+            inv = inventory
+            first = next(iter(inv.values())) if isinstance(inv, dict) else (inv[0].get("pos") if isinstance(inv[0], dict) else inv[0])
+            tx, ty = first
+        else:
+            tx, ty = goal
+
+        dx, dy = tx - pos[0], ty - pos[1]
+        if abs(dx) >= abs(dy):
+            direction = "down" if dx > 0 else "up"
+        else:
+            direction = "right" if dy > 0 else "left"
+        return {"agent_id": req.agent_id, "action_type": "move", "direction": direction, "source": "heuristic_fallback"}
 
     return {
         "agent_id": req.agent_id,
