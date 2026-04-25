@@ -42,6 +42,13 @@ class FleetAI:
         # Feature 1: Predictive tracking
         self._last_prediction: Dict[str, Any] = {}
         self._prediction_used: bool = False
+        # Shared intent registry — agents announce their target before acting
+        # Format: {agent_id: {"target": [x,y], "mode": "fetching"|"delivering"|"charging"}}
+        self.agent_intents: Dict[str, Dict[str, Any]] = {}
+
+    def register_intent(self, agent_id: str, target: list, mode: str) -> None:
+        """Called by each agent before its step to announce its current plan."""
+        self.agent_intents[agent_id] = {"target": target, "mode": mode}
 
     def reset(self) -> None:
         self.intervention_count      = 0
@@ -50,6 +57,7 @@ class FleetAI:
         self._last_intervention_type = ""
         self._last_prediction        = {}
         self._prediction_used        = False
+        self.agent_intents           = {}  # Clear shared intent registry on episode reset
 
     def intervene(
         self,

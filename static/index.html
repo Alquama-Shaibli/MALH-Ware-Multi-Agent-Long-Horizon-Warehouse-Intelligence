@@ -367,7 +367,7 @@
         }
 
         async function doAgentStep(agentId) {
-            // 1. Get action from RL policy (trained_policy or heuristic_fallback)
+            // 1. Get action from RL policy / Fleet AI coordinated heuristic
             const predRes = await fetch('/predict', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -375,7 +375,12 @@
             });
             const actionData = await predRes.json();
 
-            // 2. Build step body — include action_type correctly (pick/drop/charge/move)
+            // Surface Fleet AI coordination message to UI if present
+            if (actionData.fleet_ai_coord) {
+                showOverlay("🤝 " + actionData.fleet_ai_coord, "#a78bfa", 2000);
+            }
+
+            // 2. Build step body
             const stepBody = {
                 agent_id: agentId,
                 action_type: actionData.action_type || "move",
