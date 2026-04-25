@@ -399,7 +399,6 @@
         async function stepEnv() {
             try {
                 // Sequential steps: agent1 first, then agent2
-                // This avoids race conditions where both predict on the same state
                 const d1 = await doAgentStep("agent1");
                 const d2 = await doAgentStep("agent2");
 
@@ -421,19 +420,23 @@
                     await resetEnv('easy');
                 }
             } catch(e) {
-                console.error("Step error:", e);
+                // Don't freeze on network error — just log and continue
+                console.warn("Step error (continuing):", e);
             }
         }
 
         function updateGraph(reward) {
           rewards.push(reward);
-          // Keep array size manageable
-          if (rewards.length > 50) rewards.shift();
+          if (rewards.length > 60) rewards.shift();
 
           const chartCtx = document.getElementById("chart").getContext("2d");
 
+          // Reuse existing chart (update in-place) — much faster than destroy+recreate
           if (window.myChart) {
-              window.myChart.destroy();
+              window.myChart.data.labels = rewards.map((_, i) => i);
+              window.myChart.data.datasets[0].data = rewards;
+              window.myChart.update('none');  // 'none' = no animation = fastest
+              return;
           }
 
           window.myChart = new Chart(chartCtx, {
@@ -443,8 +446,10 @@
               datasets: [{
                 label: "Reward",
                 data: rewards,
-                borderColor: 'blue',
-                tension: 0.1
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59,130,246,0.1)',
+                tension: 0.3,
+                pointRadius: 2
               }]
             },
             options: {
@@ -474,8 +479,8 @@
           while (running) {
             await stepEnv();
             await fetchState();
-
-            await new Promise(r => setTimeout(r, 500));
+            // 700ms breathing room for HF Spaces CPU — prevents server overload
+            await new Promise(r => setTimeout(r, 700));
           }
         }
 

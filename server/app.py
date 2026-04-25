@@ -189,9 +189,12 @@ def predict(req: PredictRequest):
         other_positions = [r["pos"] for aid, r in robots.items() if aid != req.agent_id]
         other_carrying  = {item for aid, r in robots.items() if aid != req.agent_id for item in r.get("carrying", [])}
         other_intents   = {aid: v for aid, v in fleet_ai.agent_intents.items() if aid != req.agent_id}
-        other_targets   = [v["target"] for v in other_intents.values()]
+        # Only consider targets from agents ACTIVELY fetching (not idle/delivering/queuing)
+        # Stale intents from previous rounds were causing agents to avoid all items
+        other_targets   = [v["target"] for v in other_intents.values() if v.get("mode") == "fetching"]
 
         coordination_msg = None
+
 
         # ── 1. Critical battery → go charge ───────────────────────────────
         if battery < 15:
