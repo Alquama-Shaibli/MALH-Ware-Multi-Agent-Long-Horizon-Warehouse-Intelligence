@@ -162,29 +162,47 @@ def predict(req: PredictRequest):
             "source": "trained_policy"
         }
 
-    # Fallback: simple heuristic — navigate toward nearest item
+    # Fallback: smart heuristic — navigate → pickup → deliver
     robots = state.get("robots", {})
     robot = robots.get(req.agent_id)
     if robot:
         pos = robot["pos"]
         battery = robot.get("battery", 100)
-        carrying = len(robot.get("carrying", [])) > 0
+        carrying = robot.get("carrying", [])
         inventory = state.get("inventory", {})
         goal = state.get("goal", [0, 0])
+        charge_station = state.get("charge_station", [0, 0])
 
+        # 1. Critical battery → go charge
         if battery < 15:
-            return {"agent_id": req.agent_id, "action_type": "charge", "direction": None, "source": "heuristic_fallback"}
+            if pos == charge_station:
+                return {"agent_id": req.agent_id, "action_type": "charge", "direction": None, "source": "heuristic_fallback"}
+            tx, ty = charge_station
 
-        if carrying:
+        # 2. Agent is ON an item and not carrying → pick it up
+        elif not carrying and isinstance(inventory, dict):
+            on_item = any(loc == pos for loc in inventory.values())
+            if on_item:
+                return {"agent_id": req.agent_id, "action_type": "pick", "direction": None, "source": "heuristic_fallback"}
+            # Navigate to nearest item
+            if inventory:
+                nearest = min(inventory.values(), key=lambda loc: abs(loc[0]-pos[0]) + abs(loc[1]-pos[1]))
+                tx, ty = nearest
+            else:
+                tx, ty = goal
+
+        # 3. Carrying → go to goal; if at goal → drop
+        elif carrying:
+            if pos == goal:
+                return {"agent_id": req.agent_id, "action_type": "drop", "direction": None, "source": "heuristic_fallback"}
             tx, ty = goal
-        elif inventory:
-            inv = inventory
-            first = next(iter(inv.values())) if isinstance(inv, dict) else (inv[0].get("pos") if isinstance(inv[0], dict) else inv[0])
-            tx, ty = first
+
         else:
             tx, ty = goal
 
-        dx, dy = tx - pos[0], ty - pos[1]
+        # Move toward target
+        dx = tx - pos[0]
+        dy = ty - pos[1]
         if abs(dx) >= abs(dy):
             direction = "down" if dx > 0 else "up"
         else:
