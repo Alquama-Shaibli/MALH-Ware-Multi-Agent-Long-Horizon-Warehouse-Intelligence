@@ -24,6 +24,7 @@ app = FastAPI(
 
 # Module-level singleton — shared across all requests (stateful environment)
 env = WarehouseEnv()
+env.reset()  # Ensure initial state is populated
 
 
 from fastapi.staticfiles import StaticFiles

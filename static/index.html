@@ -213,12 +213,18 @@
         let chartInstance = null;
         let rewards = [];
 
+        // Global Canvas Setup (FIXED SIZE)
+        const canvas = document.getElementById("gridCanvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = 500;
+        canvas.height = 500;
+
         async function fetchState() {
           try {
             const res = await fetch("/state");
             const data = await res.json();
 
-            if (!data || !data.agents) return;
+            if (!data || !data.agents || Object.keys(data.agents).length === 0) return;
 
             updateUI(data);
             drawGrid(data);
@@ -247,14 +253,7 @@
         }
 
         function drawGrid(data) {
-          const canvas = document.getElementById("gridCanvas");
-          const ctx = canvas.getContext("2d");
-
-          // FIXED SIZE (DO NOT CHANGE PER FRAME)
-          canvas.width = 500;
-          canvas.height = 500;
-
-          const size = data.grid_size;
+          const size = data.grid_size || 10;
           const cell = canvas.width / size;
 
           ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -333,34 +332,32 @@
           // Keep array size manageable
           if (rewards.length > 50) rewards.shift();
 
-          const ctx = document.getElementById("chart").getContext("2d");
+          const chartCtx = document.getElementById("chart").getContext("2d");
 
-          if (chartInstance) {
-              chartInstance.data.labels = rewards.map((_, i) => i);
-              chartInstance.data.datasets[0].data = rewards;
-              chartInstance.update();
-          } else {
-              chartInstance = new Chart(ctx, {
-                type: "line",
-                data: {
-                  labels: rewards.map((_, i) => i),
-                  datasets: [{
-                    label: "Reward",
-                    data: rewards,
-                    borderColor: 'blue',
-                    tension: 0.1
-                  }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: false,
-                    scales: {
-                        x: { display: false }
-                    }
-                }
-              });
+          if (window.myChart) {
+              window.myChart.destroy();
           }
+
+          window.myChart = new Chart(chartCtx, {
+            type: "line",
+            data: {
+              labels: rewards.map((_, i) => i),
+              datasets: [{
+                label: "Reward",
+                data: rewards,
+                borderColor: 'blue',
+                tension: 0.1
+              }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: { display: false }
+                }
+            }
+          });
         }
 
         async function startDemo() {
@@ -400,9 +397,9 @@
                     body: JSON.stringify({task: task})
                 });
                 rewards = [];
-                if(chartInstance) {
-                    chartInstance.destroy();
-                    chartInstance = null;
+                if(window.myChart) {
+                    window.myChart.destroy();
+                    window.myChart = null;
                 }
                 currentEpisode++;
                 fetchState();
