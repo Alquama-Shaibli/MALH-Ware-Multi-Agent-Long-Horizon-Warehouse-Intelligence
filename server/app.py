@@ -246,19 +246,50 @@ def predict(req: PredictRequest):
 
             mode = "fetching"
 
-        # ── 3. Carrying → deliver to goal ─────────────────────────────────
+        # ── 3. Carrying → deliver to goal (with queue) ────────────────────
         elif carrying:
             if pos == goal:
+                # AT goal → drop immediately
                 fleet_ai.register_intent(req.agent_id, goal, "delivering")
                 return {"agent_id": req.agent_id, "action_type": "drop", "direction": None,
                         "source": "heuristic_fallback", "fleet_ai_coord": None}
-            tx, ty = goal
-            mode = "delivering"
+
+            # Check if goal is occupied by another agent
+            goal_occupied = any(r["pos"] == goal for aid, r in robots.items() if aid != req.agent_id)
+
+            if goal_occupied:
+                # ── QUEUE BEHAVIOR: wait at best adjacent free cell ────────
+                obs_raw = state.get("obstacles", [])
+                obs_set = {(o[0], o[1]) if isinstance(o, (list,tuple)) else (o["pos"][0], o["pos"][1]) for o in obs_raw}
+                other_pos_set = [r["pos"] for aid, r in robots.items() if aid != req.agent_id]
+                adjacent_to_goal = [
+                    [goal[0]-1, goal[1]], [goal[0]+1, goal[1]],
+                    [goal[0], goal[1]-1], [goal[0], goal[1]+1],
+                ]
+                free_adjacent = [
+                    c for c in adjacent_to_goal
+                    if 0 <= c[0] < grid_size and 0 <= c[1] < grid_size
+                    and c not in other_pos_set
+                    and (c[0], c[1]) not in obs_set
+                ]
+                if free_adjacent:
+                    # Move to nearest free adjacent cell (queue spot)
+                    queue_spot = min(free_adjacent, key=lambda c: dist(pos, c))
+                    tx, ty = queue_spot
+                    coordination_msg = f"Fleet AI: {req.agent_id} queuing at {queue_spot} — goal occupied"
+                else:
+                    tx, ty = goal  # fallback: head toward goal anyway
+                mode = "queuing"
+            else:
+                # Goal is free → move straight to it
+                tx, ty = goal
+                mode = "delivering"
+
         else:
-            # ── IDLE: move toward charge station so goal cell stays clear ──
-            # This prevents idle agents from blocking the delivery zone
+            # ── IDLE: move to charge station — keeps goal clear ────────────
             tx, ty = charge_station
             mode = "idle"
+
 
         # ── Register resolved intent with Fleet AI (communication broadcast) ──
         fleet_ai.register_intent(req.agent_id, [tx, ty], mode)
