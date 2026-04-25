@@ -69,9 +69,6 @@ def step(action: Action):
     """
     Execute one action for one agent.
     Fleet AI may override the action silently before execution.
-
-    agent_id defaults to "agent1" for backward compatibility.
-    Example: {"agent_id": "agent2", "action_type": "move", "direction": "right"}
     """
     obs, reward, done, info = env.step(action)
     return {
@@ -81,6 +78,34 @@ def step(action: Action):
         "done":             done,
         "info":             info,
     }
+
+
+# ── Predict (Trained RL Policy) ───────────────────────────────────────────────
+from pydantic import BaseModel
+import pickle
+
+class PredictRequest(BaseModel):
+    agent_id: str
+
+@app.post("/predict")
+def predict(req: PredictRequest):
+    """Returns the true optimal action from the saved Q-table."""
+    from online_rl import SimplePolicy
+    
+    # Load trained Q-table if it exists
+    q_table = {}
+    q_path = os.path.join(_ROOT, "q_table.pkl")
+    if os.path.exists(q_path):
+        with open(q_path, "rb") as f:
+            q_table = pickle.load(f)
+            
+    policy = SimplePolicy(req.agent_id)
+    policy.epsilon = 0.0  # Force pure exploitation (no random moves)
+    policy.q_values = q_table
+    
+    obs = env._make_obs()
+    action = policy.choose_action(obs)
+    return action.model_dump()
 
 
 # ── State ─────────────────────────────────────────────────────────────────────

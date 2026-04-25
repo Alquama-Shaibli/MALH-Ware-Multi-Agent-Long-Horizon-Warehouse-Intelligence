@@ -151,6 +151,12 @@ def run_online_rl():
     print(f"Final Reward : {rewards_per_episode[-1]:.2f}")
     print(f"Improvement  : {rewards_per_episode[-1] - rewards_per_episode[0]:.2f}\n")
 
+    # Save Q-table to disk for the UI to use
+    import pickle
+    with open("q_table.pkl", "wb") as f:
+        pickle.dump(agent1.q_values, f)
+    print("Saved Q-table to q_table.pkl")
+
     return rewards_per_episode
 
 # -----------------------------
