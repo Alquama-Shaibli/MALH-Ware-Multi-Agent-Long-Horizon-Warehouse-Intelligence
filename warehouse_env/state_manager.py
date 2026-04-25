@@ -354,6 +354,8 @@ class StateManager:
                 for item in order["items"]:
                     if item in robot["carrying"]:
                         robot["carrying"].remove(item)
+                    # Remove from inventory so it doesn't reappear as unclaimed
+                    self.inventory.pop(item, None)
 
         # Theme #4: increment success streak when all orders done
         if len(self.completed_orders) == len(self.orders) and self.orders:

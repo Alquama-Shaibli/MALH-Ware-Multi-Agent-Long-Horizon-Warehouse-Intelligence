@@ -337,8 +337,9 @@ def state():
         ],
         "goal": {"x": raw_state["goal"][0], "y": raw_state["goal"][1]} if raw_state.get("goal") else None,
         "charge_station": {"x": raw_state["charge_station"][0], "y": raw_state["charge_station"][1]} if raw_state.get("charge_station") else None,
-        "deliveries": len(raw_state.get("completed_orders", [])),
-        "collisions": getattr(sm, "collisions", 0) + getattr(sm, "agent_collisions", 0)
+        "deliveries":     len(raw_state.get("completed_orders", [])),
+        "total_orders":   len(raw_state.get("orders", [])),
+        "collisions":     getattr(sm, "collisions", 0) + getattr(sm, "agent_collisions", 0)
     }
 
 
