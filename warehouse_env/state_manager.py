@@ -267,6 +267,10 @@ class StateManager:
 
         for aid, r in self.robots.items():
             if aid != agent_id and r["pos"] == [nx, ny]:
+                # Allow a carrying agent to enter the goal cell (delivery priority)
+                # The idle agent there will move away on its next step
+                if robot.get("carrying") and [nx, ny] == self.goal:
+                    break  # skip collision — let it through to the goal
                 self.agent_collisions += 1
                 self.idle_steps[agent_id] = self.idle_steps.get(agent_id, 0) + 1
                 return False, "agent_collision"
