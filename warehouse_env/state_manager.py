@@ -52,6 +52,7 @@ class StateManager:
         (0.50, 0.17),
         (0.67, 0.67),
         (0.17, 0.67),
+        (0.50, 0.50),  # 5th position (centre)
     ]
 
     def __init__(self) -> None:
@@ -112,7 +113,7 @@ class StateManager:
         return self.get_state()
 
     def _static_reset(self, task: str) -> None:
-        """Original config-driven reset — fully backward-compatible."""
+        """Config-driven reset. Easy mode randomises item count (2-5) each episode."""
         cfg = self._CONFIGS.get(task, self._CONFIGS["easy"])
         self.grid_size = cfg["grid"]
         g = self.grid_size
@@ -124,14 +125,39 @@ class StateManager:
         self.goal           = [g - 1, g - 1]
         self.charge_station = [0,     g - 1]
 
+        # ── Random item count for easy mode (2-5), fixed for others ──────
+        if task == "easy":
+            n_items = random.randint(2, 5)
+            item_names = [f"item{i+1}" for i in range(n_items)]
+        else:
+            item_names = cfg["items"]
+            n_items = len(item_names)
+
+        # Place items at unique grid positions (avoid corners/protected cells)
+        protected = {(0, 0), (g-1, 0), (g-1, g-1), (0, g-1)}
         self.inventory = {}
-        for i, item_name in enumerate(cfg["items"]):
+        for i, item_name in enumerate(item_names):
+            # Try preset position first, then fall back to random
             rx, ry = self._RAW_ITEM_POS[i % len(self._RAW_ITEM_POS)]
             x = max(1, min(g - 2, int(rx * g)))
             y = max(1, min(g - 2, int(ry * g)))
+            # If collision with existing item, find random free cell
+            attempts = 0
+            while ([x, y] in self.inventory.values() or (x, y) in protected) and attempts < 50:
+                x = random.randint(1, g - 2)
+                y = random.randint(1, g - 2)
+                attempts += 1
             self.inventory[item_name] = [x, y]
 
-        self.orders             = [dict(o) for o in cfg["orders"]]
+        # ── Auto-generate one order per item (all independent, no deps) ──
+        if task == "easy":
+            self.orders = [
+                {"id": f"order{i+1}", "items": [name], "priority": i+1, "depends_on": None}
+                for i, name in enumerate(item_names)
+            ]
+        else:
+            self.orders = [dict(o) for o in cfg["orders"]]
+
         self.completed_orders   = []
         self.order_contributors = {}
         self._place_obstacles(n=cfg["n_obstacles"])
