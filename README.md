@@ -37,6 +37,7 @@ tags:
 
 ## 📊 Visual Proof of Self-Improvement
 
+![Self-Improvement Curve](self_improvement_curve.png)
 ![SFT Training Curve](sft_training_curve.png)
 
 *Curriculum Learning Note: Initial negative rewards on "Hard" tasks in RL plots represent the agent safely exploring complex penalties before mastering the task. The SFT pipeline above proves final capability acquisition.*
