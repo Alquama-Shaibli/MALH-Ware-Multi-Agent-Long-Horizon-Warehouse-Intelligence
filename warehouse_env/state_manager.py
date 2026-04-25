@@ -430,4 +430,5 @@ class StateManager:
             "steps":            self.steps,
             "completed_orders": list(self.completed_orders),
             "charge_station":   list(self.charge_station),
+            "grid_size":        self.grid_size,
         }

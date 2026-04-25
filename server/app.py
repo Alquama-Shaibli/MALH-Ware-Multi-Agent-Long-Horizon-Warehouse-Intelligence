@@ -185,16 +185,14 @@ def predict(req: PredictRequest):
         def dist(a, b): return abs(a[0]-b[0]) + abs(a[1]-b[1])
 
         # ── Read other agents' REGISTERED INTENTS from Fleet AI ───────────
-        # This is the agent-to-agent communication channel
         other_positions = [r["pos"] for aid, r in robots.items() if aid != req.agent_id]
         other_carrying  = {item for aid, r in robots.items() if aid != req.agent_id for item in r.get("carrying", [])}
         other_intents   = {aid: v for aid, v in fleet_ai.agent_intents.items() if aid != req.agent_id}
-        # Only consider targets from agents ACTIVELY fetching (not idle/delivering/queuing)
-        # Stale intents from previous rounds were causing agents to avoid all items
-        other_targets   = [v["target"] for v in other_intents.values() if v.get("mode") == "fetching"]
+        other_targets = [v["target"] for v in other_intents.values() if v.get("mode") == "fetching"]
 
         coordination_msg = None
-
+        tx, ty = goal  # safe default
+        mode   = "idle"
 
         # ── 1. Critical battery → go charge ───────────────────────────────
         if battery < 15:
@@ -205,91 +203,63 @@ def predict(req: PredictRequest):
             tx, ty = charge_station
             mode = "charging"
 
-        # ── 2. ON an item and not carrying → pick it up ────────────────────
-        elif not carrying and isinstance(inventory, dict):
-            on_item = any(loc == pos for iid, loc in inventory.items() if iid not in other_carrying)
+        # ── 2. Standing ON an unclaimed item → pick it up immediately ─────
+        elif not carrying:
+            inv = inventory if isinstance(inventory, dict) else {}
+            on_item = any(loc == pos for iid, loc in inv.items() if iid not in other_carrying)
             if on_item:
                 fleet_ai.register_intent(req.agent_id, pos, "fetching")
                 return {"agent_id": req.agent_id, "action_type": "pick", "direction": None,
                         "source": "heuristic_fallback", "fleet_ai_coord": None}
 
-            # ── FLEET AI COORDINATION: claim item no other agent is closer to ──
-            unclaimed = {iid: loc for iid, loc in inventory.items() if iid not in other_carrying}
+            # ── Navigate to nearest unclaimed item not taken by active fetcher
+            unclaimed = {iid: loc for iid, loc in inv.items() if iid not in other_carrying}
             if unclaimed:
                 my_item = None
                 my_dist = float("inf")
                 for iid, loc in unclaimed.items():
+                    if loc in other_targets:   # another agent is actively heading here
+                        continue
                     d = dist(pos, loc)
-                    other_closer  = any(dist(op, loc) < d for op in other_positions)
-                    target_claimed = loc in other_targets   # other agent already declared this
-                    if not other_closer and not target_claimed and d < my_dist:
+                    if d < my_dist:
                         my_dist = d
                         my_item = loc
-
                 if my_item is None:
-                    # Contest — Fleet AI picks least-contested item for this agent
+                    # All items contested — go to nearest anyway
                     my_item = min(unclaimed.values(), key=lambda loc: dist(pos, loc))
-                    coordination_msg = f"Fleet AI coord: {req.agent_id} rerouted to alternate item"
-                    fleet_ai.intervention_count += 1
-                    fleet_ai.efficiency_improvements += 1
-
+                    coordination_msg = f"Fleet AI: {req.agent_id} competing for item"
                 tx, ty = my_item
             else:
+                # All items are being carried — assist at goal area
                 tx, ty = goal
-
-            # ── FLEET AI: detect head-on collision course ──────────────────
-            for other_id, intent in other_intents.items():
-                other_pos = robots.get(other_id, {}).get("pos", [0, 0])
-                if intent.get("mode") == "fetching":
-                    same_row = (pos[0] == other_pos[0]) and (abs(pos[1] - other_pos[1]) <= 2)
-                    same_col = (pos[1] == other_pos[1]) and (abs(pos[0] - other_pos[0]) <= 2)
-                    if same_row or same_col:
-                        coordination_msg = f"Fleet AI coord: {req.agent_id} rerouting — head-on with {other_id}"
-                        fleet_ai.intervention_count += 1
-
             mode = "fetching"
 
         # ── 3. Carrying → deliver to goal (with queue) ────────────────────
         elif carrying:
             if pos == goal:
-                # AT goal → drop immediately
                 fleet_ai.register_intent(req.agent_id, goal, "delivering")
                 return {"agent_id": req.agent_id, "action_type": "drop", "direction": None,
                         "source": "heuristic_fallback", "fleet_ai_coord": None}
 
-            # Check if goal is occupied by another agent
             goal_occupied = any(r["pos"] == goal for aid, r in robots.items() if aid != req.agent_id)
-
             if goal_occupied:
-                # ── QUEUE BEHAVIOR: wait at best adjacent free cell ────────
-                obs_raw = state.get("obstacles", [])
-                obs_set = {(o[0], o[1]) if isinstance(o, (list,tuple)) else (o["pos"][0], o["pos"][1]) for o in obs_raw}
-                other_pos_set = [r["pos"] for aid, r in robots.items() if aid != req.agent_id]
-                adjacent_to_goal = [
-                    [goal[0]-1, goal[1]], [goal[0]+1, goal[1]],
-                    [goal[0], goal[1]-1], [goal[0], goal[1]+1],
-                ]
-                free_adjacent = [
-                    c for c in adjacent_to_goal
-                    if 0 <= c[0] < grid_size and 0 <= c[1] < grid_size
-                    and c not in other_pos_set
-                    and (c[0], c[1]) not in obs_set
-                ]
-                if free_adjacent:
-                    # Move to nearest free adjacent cell (queue spot)
-                    queue_spot = min(free_adjacent, key=lambda c: dist(pos, c))
-                    tx, ty = queue_spot
-                    coordination_msg = f"Fleet AI: {req.agent_id} queuing at {queue_spot} — goal occupied"
-                else:
-                    tx, ty = goal  # fallback: head toward goal anyway
+                obs_set = {(o[0], o[1]) if isinstance(o, (list, tuple)) else (o["pos"][0], o["pos"][1])
+                           for o in state.get("obstacles", [])}
+                occ     = [r["pos"] for aid, r in robots.items() if aid != req.agent_id]
+                adj     = [[goal[0]-1, goal[1]], [goal[0]+1, goal[1]],
+                           [goal[0], goal[1]-1], [goal[0], goal[1]+1]]
+                free    = [c for c in adj
+                           if 0 <= c[0] < grid_size and 0 <= c[1] < grid_size
+                           and c not in occ and (c[0], c[1]) not in obs_set]
+                tx, ty  = min(free, key=lambda c: dist(pos, c)) if free else goal
+                coordination_msg = f"Fleet AI: {req.agent_id} queuing — goal occupied"
                 mode = "queuing"
             else:
-                # Goal is free → move straight to it
                 tx, ty = goal
                 mode = "delivering"
 
         else:
-            # ── IDLE: move to charge station — keeps goal clear ────────────
+            # IDLE → retreat to charge station (keeps goal clear for deliveries)
             tx, ty = charge_station
             mode = "idle"
 
