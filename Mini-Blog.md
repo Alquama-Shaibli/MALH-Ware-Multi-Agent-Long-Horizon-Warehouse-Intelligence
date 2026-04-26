@@ -59,7 +59,7 @@ After training:
 ## 🔗 **Links**
 - GitHub: https://github.com/Alquama-Shaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence  
 - Colab: https://colab.research.google.com/drive/1W1NMqiOcWIAJK0XWdtSaVpZMq3NmD06p?usp=sharing  
-- Demo: *(add links)*  
+- Demo Video: https://youtu.be/zuq7Oi88kLc?si=WHjfqswsnfMqAjkS
 
 ---
 > 🚀 From single-agent reasoning → real-world multi-agent intelligence
