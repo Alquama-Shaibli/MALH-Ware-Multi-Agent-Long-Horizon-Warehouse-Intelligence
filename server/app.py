@@ -251,29 +251,30 @@ def predict(req: PredictRequest):
                             "fleet_ai_coord": None}
 
             if unclaimed:
-                # Pick nearest item not already claimed by an active fetcher
-                target = None
-                best   = float("inf")
-                for iid, loc in unclaimed.items():
-                    if loc in fetching_tgts:   continue   # other agent heading here
-                    d = dist(pos, loc)
-                    if d < best:
-                        best   = d
-                        target = loc
-                if target is None:              # all contested — race for nearest
-                    target     = min(unclaimed.values(), key=lambda l: dist(pos, l))
-                    coord_msg  = f"Fleet AI: {req.agent_id} competing for nearest item"
+                # ── DETERMINISTIC SPLIT: No competition possible ──────────
+                # Sort items by ID (stable). Agent1 takes indices 0,2,4...
+                # Agent2 takes indices 1,3,5... → they never target same item
+                agent_idx     = 0 if req.agent_id == "agent1" else 1
+                sorted_items  = sorted(unclaimed.items(), key=lambda x: x[0])
+                my_items      = {iid: loc for i,(iid,loc) in enumerate(sorted_items)
+                                 if i % 2 == agent_idx}
 
+                if not my_items:
+                    # All "my" items delivered — take from other set (help finish)
+                    my_items = dict(sorted_items)
+
+                target = min(my_items.values(), key=lambda l: dist(pos, l))
                 fleet_ai.register_intent(req.agent_id, target, "fetching")
                 return {"agent_id": req.agent_id, "action_type": "move",
                         "direction": navigate(target), "source": "heuristic_fallback",
-                        "fleet_ai_coord": coord_msg}
+                        "fleet_ai_coord": f"Fleet AI: {req.agent_id} → assigned item"}
 
             # No unclaimed items → retreat to charger and wait
             fleet_ai.register_intent(req.agent_id, charge, "idle")
             return {"agent_id": req.agent_id, "action_type": "move",
                     "direction": navigate(charge), "source": "heuristic_fallback",
                     "fleet_ai_coord": None}
+
 
         # ══ PRIORITY 4: CARRYING → DELIVER (queue if goal blocked) ═══════════
         goal_blocked = any(r["pos"] == goal for aid,r in robots.items() if aid != req.agent_id)
