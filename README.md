@@ -16,21 +16,65 @@ tags:
 
 # Smart Warehouse Multi-Agent Intelligence Environment
 
-> **THE PROBLEM:** Real-world automation (like Amazon or Flipkart warehouses) requires hundreds of agents to cooperate, avoid collisions, and share resources without explicitly communicating. Current LLM benchmarks only test single agents in isolated environments. 
-> 
+> **THE PROBLEM:** Real-world automation (like Amazon or Flipkart warehouses) requires hundreds of agents to cooperate, avoid collisions, and share resources without explicitly communicating. Current LLM benchmarks only test single agents in isolated environments.
+>
 > **WHAT THIS BUILDS:** A high-fidelity, multi-agent warehouse environment designed to force emergent coordination and long-horizon planning under partial observability.
-> 
+>
 > **INNOVATION HOOK:** Features a hierarchical **"Fleet AI"** meta-agent that monitors intent and intervenes to prevent catastrophic collisions using Theory of Mind.
 
 ![Training Curve](training_curve.png)
 
-## 🔗 Quick Links 
+## 🔗 Quick Links
 
 - **Hugging Face Space (Runnable Env)**: [Smart Warehouse Space](https://huggingface.co/spaces/AlquamaShaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence)
 - **GitHub Repository**: [MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence](https://github.com/Alquama-Shaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence)
 - **Colab Notebook (Training Pipeline)**: [Open in Colab](https://colab.research.google.com/drive/1W1NMqiOcWIAJK0XWdtSaVpZMq3NmD06p)
 - **Mini-blog (Hugging Face post)**: *(ADD LINK HERE)*
 - **Demo Video (< 2 mins)**: *(ADD LINK HERE)*
+
+---
+
+## 🆕 Recent Improvements & Bug Fixes (April 2026)
+
+A comprehensive stability pass was performed across the heuristic controller, Fleet AI, state manager, and UI visualizer. Below is a summary of every change made.
+
+### 🤖 Heuristic Agent Logic (`server/app.py`)
+
+| Fix | Details |
+|-----|---------|
+| **Strict Priority Order** | Enforced `DROP > CHARGE > FETCH > DELIVER` — agents always drop first, never abandon a delivery |
+| **Deterministic Item Assignment** | Agent 1 takes even-index items (0, 2, 4…), Agent 2 takes odd-index items (1, 3, 5…) — zero competition by design |
+| **2-Pass navigate()** | Pass 1 avoids obstacles + agents; Pass 2 breaks deadlocks by ignoring agent positions — eliminates oscillation with Fleet AI |
+| **Dynamic charge threshold** | `max(25, dist_to_charger + 5)` — agents always have enough battery to reach charger regardless of position |
+| **Goal queue logic** | When goal is occupied, carrying agent waits at the nearest free adjacent cell instead of wandering |
+| **Idle spread** | Agent 1 idles at charge station; Agent 2 idles near goal — agents wait on **opposite sides** so they never visually overlap |
+| **Inventory cleanup fix** | Delivered items are now correctly removed from `state_manager.inventory` — prevents infinite re-fetch loops |
+
+### ⚡ Fleet AI (`warehouse_env/env_core.py`)
+
+| Fix | Details |
+|-----|---------|
+| **Threshold alignment** | Fleet AI battery Rules 1 & 2 raised from 20 → **25** to match heuristic, eliminating conflict oscillation |
+| **Rule 3 raised** | "Wasteful charge" redirect only fires at battery ≥ **90** (was 80) — agents can now charge without being prematurely redirected |
+
+### 🏭 State Manager (`warehouse_env/state_manager.py`)
+
+| Fix | Details |
+|-----|---------|
+| **Agent spawn positions** | Moved from `[0,0]` / `[5,0]` (canvas corner clips) → `[1,1]` / `[4,1]` — both agents fully visible from spawn |
+| **Inventory drop fix** | `drop()` now removes delivered items from `self.inventory` dict — fixes infinite delivery loop |
+| **`grid_size` in state** | Exposed `grid_size` in `get_state()` so heuristic pathfinding uses correct bounds |
+
+### 🖥️ UI Visualizer (`static/index.html`)
+
+| Fix | Details |
+|-----|---------|
+| **Canvas no clip** | Removed `border-radius` from canvas element — agents at grid edges are no longer visually clipped |
+| **Items on top** | Items now rendered **after agents** with yellow glow ring — always visible even when an agent stands on the same cell |
+| **Overlap offset** | If both agents share a cell, Agent 1 shifts left and Agent 2 shifts right — both always visible |
+| **Compact layout** | Canvas 500→380px, banner/card/button sizes reduced, scrollable layout — fits smaller screens |
+| **Correct items counter** | "Items Remaining" now shows `total_orders − deliveries` (pending orders), not raw inventory count |
+| **`overflow-y: auto`** | Body is now scrollable — buttons and reward graph are always accessible |
 
 ---
 
@@ -41,7 +85,7 @@ tags:
 
 **Behavioral Improvements:**
 - 📉 **Reduced Collisions:** Agents learn to navigate around obstacles and each other.
-- 🤝 **Task Splitting:** Implicit division of labor—agents stop fighting for the same items.
+- 🤝 **Task Splitting:** Implicit division of labor — agents stop fighting for the same items.
 - 🔋 **Better Battery Use:** Agents stagger their charging times to avoid queue penalties.
 - 📋 **Correct Order Sequencing:** Dependency chains are respected across 300+ steps.
 
