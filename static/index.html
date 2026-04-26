@@ -296,24 +296,13 @@
             ctx.fillText('🏁', gx * cell + cell/2, gy * cell + cell * 0.65);
           }
 
-          // Draw items (only unclaimed ones in inventory)
-          (data.items || []).forEach(item => {
-            ctx.fillStyle = '#facc15';
-            ctx.shadowColor = '#facc15';
-            ctx.shadowBlur = 8;
-            ctx.beginPath();
-            ctx.arc(item.x * cell + cell/2, item.y * cell + cell/2, cell * 0.28, 0, Math.PI*2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-          });
-
           // Draw obstacles
           (data.obstacles || []).forEach(obs => {
             ctx.fillStyle = '#ef4444';
             ctx.fillRect(obs.x * cell + 3, obs.y * cell + 3, cell - 6, cell - 6);
           });
 
-          // Draw Agent 1 (Blue) — with carry indicator
+          // Draw Agent 1 (Blue)
           if (data.agents && data.agents.agent1) {
             const a = data.agents.agent1;
             ctx.shadowColor = '#3b82f6';
@@ -324,7 +313,6 @@
             ctx.fill();
             ctx.shadowBlur = 0;
             if (a.carrying) {
-              // Show carried item as small yellow dot on agent
               ctx.fillStyle = '#facc15';
               ctx.beginPath();
               ctx.arc(a.x * cell + cell/2, a.y * cell + cell*0.25, cell * 0.12, 0, Math.PI*2);
@@ -336,7 +324,7 @@
             ctx.fillText('1', a.x * cell + cell/2, a.y * cell + cell*0.58);
           }
 
-          // Draw Agent 2 (Green) — with carry indicator
+          // Draw Agent 2 (Green)
           if (data.agents && data.agents.agent2) {
             const a = data.agents.agent2;
             ctx.shadowColor = '#22c55e';
@@ -357,6 +345,28 @@
             ctx.textAlign = 'center';
             ctx.fillText('2', a.x * cell + cell/2, a.y * cell + cell*0.58);
           }
+
+          // Draw items ON TOP of agents (always visible, pulsing yellow ring)
+          (data.items || []).forEach(item => {
+            const px = item.x * cell + cell/2;
+            const py = item.y * cell + cell/2;
+            // Outer glow ring
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = '#fbbf24';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.arc(px, py, cell * 0.32, 0, Math.PI*2);
+            ctx.stroke();
+            // Filled dot
+            ctx.fillStyle = '#facc15';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(px, py, cell * 0.22, 0, Math.PI*2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.lineWidth = 1;
+          });
         }
 
         function showOverlay(msg, color, duration=1500) {
