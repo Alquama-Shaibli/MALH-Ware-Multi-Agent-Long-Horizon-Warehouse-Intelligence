@@ -119,7 +119,7 @@ class FleetAI:
                 return override, True, explanation
 
         # ── Rule 1: At charge station with critical battery ────────────────
-        if battery <= 20 and intended_action.action_type != "charge":
+        if battery <= 25 and intended_action.action_type != "charge":
             if pos == [cx, cy]:
                 override     = Action(agent_id=agent_id, action_type="charge")
                 explanation  = (
@@ -152,7 +152,7 @@ class FleetAI:
         # ── Rule 3: Wasteful charge when battery is high ───────────────────
         if (
             intended_action.action_type == "charge"
-            and battery >= 80
+            and battery >= 90
             and carrying
             and sm.charging_agent is None
         ):

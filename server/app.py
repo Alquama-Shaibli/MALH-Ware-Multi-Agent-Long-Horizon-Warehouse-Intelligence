@@ -207,7 +207,7 @@ def predict(req: PredictRequest):
     # Threshold: enough steps to reach charger + 5 safety margin (min 20)
     # ═══════════════════════════════════════════════════════════════════════════
     dist_to_charge   = mdist(pos, charge)
-    charge_threshold = max(20, dist_to_charge + 5)
+    charge_threshold = max(25, dist_to_charge + 5)
     if battery <= charge_threshold:
         fleet_ai.register_intent(req.agent_id, charge, "charging")
         if pos == charge:
