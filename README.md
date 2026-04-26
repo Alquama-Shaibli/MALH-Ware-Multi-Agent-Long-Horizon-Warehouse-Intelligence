@@ -34,7 +34,7 @@ tags:
 
 ---
 
-## 🆕 Recent Improvements & Bug Fixes (April 2026)
+## 🆕 Recent Improvements & Bug Fixes 
 
 A comprehensive stability pass was performed across the heuristic controller, Fleet AI, state manager, and UI visualizer. Below is a summary of every change made.
 
