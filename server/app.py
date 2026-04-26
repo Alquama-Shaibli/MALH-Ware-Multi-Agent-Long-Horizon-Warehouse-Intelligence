@@ -147,8 +147,9 @@ def predict(req: PredictRequest):
         return abs(a[0]-b[0]) + abs(a[1]-b[1])
 
     def navigate(target):
-        """Greedy move toward target. Avoids walls/obstacles ONLY.
-        Agent-blocking is handled by StateManager (small penalty, never deadlock)."""
+        """2-pass greedy navigation:
+        Pass 1: avoid walls + obstacles + other agents (preferred path).
+        Pass 2: avoid walls + obstacles only (deadlock breaker)."""
         if pos == target:
             return "up"
         dx = target[0] - pos[0]
@@ -163,18 +164,29 @@ def predict(req: PredictRequest):
                     ("down"  if dx>0 else "up"),
                     ("left" if dy>0 else "right"),
                     ("up"   if dx>0 else "down"))
-        deltas  = {"up":(-1,0),"down":(1,0),"left":(0,-1),"right":(0,1)}
-        obs_set = {(o[0],o[1]) if isinstance(o,(list,tuple)) else (o["pos"][0],o["pos"][1])
-                   for o in obs_raw}
+        deltas   = {"up":(-1,0),"down":(1,0),"left":(0,-1),"right":(0,1)}
+        obs_set  = {(o[0],o[1]) if isinstance(o,(list,tuple)) else (o["pos"][0],o["pos"][1])
+                    for o in obs_raw}
+        ag_set   = {(p[0],p[1]) for p in other_pos}
+        # Pass 1: avoid obstacles AND agents
         for d in dirs:
             ddx, ddy = deltas[d]
             nx, ny   = pos[0]+ddx, pos[1]+ddy
             if not (0<=nx<grid_size and 0<=ny<grid_size): continue
-            if (nx, ny) in obs_set:                        continue
-            return d          # no agent-avoidance: let collision penalty handle it
-        return dirs[0]        # wall-trapped fallback
+            if (nx,ny) in obs_set: continue
+            if (nx,ny) in ag_set:  continue
+            return d
+        # Pass 2: deadlock breaker — avoid only obstacles
+        for d in dirs:
+            ddx, ddy = deltas[d]
+            nx, ny   = pos[0]+ddx, pos[1]+ddy
+            if not (0<=nx<grid_size and 0<=ny<grid_size): continue
+            if (nx,ny) in obs_set: continue
+            return d
+        return dirs[0]   # truly wall-trapped
 
     # Other agent context
+    other_pos      = [r["pos"] for aid,r in robots.items() if aid != req.agent_id]
     other_carried  = {item for aid,r in robots.items() if aid != req.agent_id
                       for item in r.get("carrying", [])}
     # Targets the OTHER agent is ACTIVELY fetching (correct self-exclusion by agent_id key)
@@ -191,10 +203,10 @@ def predict(req: PredictRequest):
                 "fleet_ai_coord": "Dropping at goal"}
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # P2 — LOW BATTERY → CHARGE  (threshold = distance + safety buffer)
+    # P2 — LOW BATTERY → CHARGE  (threshold = distance to charger + 8 buffer)
     # ═══════════════════════════════════════════════════════════════════════════
-    dist_to_charge  = mdist(pos, charge)
-    charge_threshold = dist_to_charge + 10   # need distance steps + 10 safety buffer
+    dist_to_charge   = mdist(pos, charge)
+    charge_threshold = dist_to_charge + 8   # enough to always reach charger
     if battery <= charge_threshold:
         fleet_ai.register_intent(req.agent_id, charge, "charging")
         if pos == charge:
@@ -203,7 +215,7 @@ def predict(req: PredictRequest):
                     "fleet_ai_coord": None}
         return {"agent_id": req.agent_id, "action_type": "move",
                 "direction": navigate(charge), "source": "heuristic_fallback",
-                "fleet_ai_coord": f"Fleet AI: {req.agent_id} charging (batt={int(battery)})"}
+                "fleet_ai_coord": f"Charging: batt={int(battery)}, dist={dist_to_charge}"}
 
     # ═══════════════════════════════════════════════════════════════════════════
     # P3 — NOT CARRYING → FETCH nearest assigned item
@@ -241,11 +253,15 @@ def predict(req: PredictRequest):
                     "direction": navigate(target), "source": "heuristic_fallback",
                     "fleet_ai_coord": f"Fleet AI: {req.agent_id} assigned item"}
 
-        # No unclaimed items → wait at charger (keeps paths clear)
+        # No unclaimed items → park at charger and CHARGE (save battery while idle)
         fleet_ai.register_intent(req.agent_id, charge, "idle")
+        if pos == charge:
+            return {"agent_id": req.agent_id, "action_type": "charge",
+                    "direction": None, "source": "heuristic_fallback",
+                    "fleet_ai_coord": "Idle: charging while waiting for new items"}
         return {"agent_id": req.agent_id, "action_type": "move",
                 "direction": navigate(charge), "source": "heuristic_fallback",
-                "fleet_ai_coord": None}
+                "fleet_ai_coord": "Parking at charger (no items)"}
 
     # ═══════════════════════════════════════════════════════════════════════════
     # P4 — CARRYING → DELIVER (queue at adjacent cell if goal is blocked)
