@@ -556,8 +556,11 @@ class WarehouseEnv:
             reward_components["competition_penalty"] = -0.05
         elif efficiency_split:
             # Agents split tasks efficiently — small bonus
-            raw_reward += 0.1
-            reward_components["task_split_bonus"] = 0.1
+            raw_reward += 0.25
+            reward_components["task_split_bonus"] = 0.25
+            # Continuous bonus for maintaining split
+            raw_reward += 0.05
+            reward_components["coordination"] = reward_components.get("coordination", 0.0) + 0.05
 
         # ── Feature 2: Infer intent for ALL agents before action fires ─────
         agent_intent: Dict[str, str] = {
@@ -584,8 +587,8 @@ class WarehouseEnv:
                 raw_reward += -0.01
                 reward_components["movement"] = -0.01
             elif reason == "agent_collision":
-                raw_reward += -0.5
-                reward_components["agent_collision"] = -0.5
+                raw_reward += -0.8
+                reward_components["agent_collision"] = -0.8
             else:
                 raw_reward += -0.3
                 reward_components["collision"] = -0.3
@@ -785,22 +788,22 @@ class WarehouseEnv:
         # Check duplicate positions
         positions = [tuple(r["pos"]) for r in robots.values()]
         if len(positions) != len(set(positions)):
-            print("⚠ WARNING: Duplicate robot positions detected")
+            print("WARNING: Duplicate robot positions detected")
 
         # Battery validation
         for agent_id, r in robots.items():
             if r["battery"] < 0:
-                print(f"⚠ WARNING: {agent_id} battery below 0 → correcting")
+                print(f"WARNING: {agent_id} battery below 0 → correcting")
                 r["battery"] = 0
 
         # Carrying validation
         for agent_id, r in robots.items():
             valid_items = []
             for item in r.get("carrying", []):
-                if item in ["item1", "item2", "item3"]:
+                if item.startswith("item"):
                     valid_items.append(item)
                 else:
-                    print(f"⚠ WARNING: Invalid carrying state for {agent_id}")
+                    print(f"WARNING: Invalid carrying state for {agent_id}")
             r["carrying"] = valid_items
 
     # ── Helpers ────────────────────────────────────────────────────────────────
