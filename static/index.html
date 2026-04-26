@@ -168,8 +168,8 @@
             </div>
             <div class="controls">
                 <button id="learnBtn" class="demo" onclick="toggleLearning()">[ Start Learning Demo ]</button>
-                <button onclick="fetchState()">Refresh</button>
-                <button class="danger" onclick="resetEnv('hard')">Reset Env</button>
+                <button onclick="stopDemo(); fetchState();">Refresh</button>
+                <button class="danger" onclick="stopDemo(); resetEnv('easy')">Reset Env</button>
             </div>
         </div>
 

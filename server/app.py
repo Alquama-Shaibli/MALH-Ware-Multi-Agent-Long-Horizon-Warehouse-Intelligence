@@ -233,23 +233,39 @@ def predict(req: PredictRequest):
                         "fleet_ai_coord": None}
 
         if unclaimed:
-            # Deterministic split — agent1 takes even indices (0,2,4…),
-            # agent2 takes odd indices (1,3,5…). Zero competition by design.
+            # Sort by distance from current pos (nearest first) for each agent
             agent_idx    = 0 if req.agent_id == "agent1" else 1
-            sorted_items = sorted(unclaimed.items(), key=lambda x: x[0])  # sort by item name
+            sorted_items = sorted(unclaimed.items(), key=lambda x: mdist(pos, x[1]))
             my_items     = [(iid, loc) for i, (iid, loc) in enumerate(sorted_items)
                             if i % 2 == agent_idx]
 
             if not my_items:
-                # My parity items all delivered → help with remaining,
-                # but avoid what the other agent is already heading for
+                # My parity items all delivered → help with any remaining
                 my_items = [(iid, loc) for iid, loc in sorted_items
-                            if loc not in other_fetching]
-                if not my_items:
-                    my_items = sorted_items   # only 1 item left, both go, first wins
+                            if loc not in other_fetching] or list(sorted_items)
 
             target = min(my_items, key=lambda x: mdist(pos, x[1]))[1]
-            fleet_ai.register_intent(req.agent_id, target, "fetching")
+
+            # ── Stuck detection: if oscillating, force perpendicular escape ──
+            hist = fleet_ai.agent_intents.get(req.agent_id, {}).get("history", [])
+            if len(hist) >= 4 and hist[-1] == hist[-3] and hist[-2] == hist[-4]:
+                # Oscillating A↔B pattern — pick perpendicular direction
+                deltas = {"up":(-1,0),"down":(1,0),"left":(0,-1),"right":(0,1)}
+                obs_set2 = {(o[0],o[1]) if isinstance(o,(list,tuple)) else (o["pos"][0],o["pos"][1])
+                            for o in obs_raw}
+                for esc_dir in ["right","left","down","up"]:
+                    dx2, dy2 = deltas[esc_dir]
+                    nx2, ny2 = pos[0]+dx2, pos[1]+dy2
+                    if (0<=nx2<grid_size and 0<=ny2<grid_size
+                            and (nx2,ny2) not in obs_set2):
+                        fleet_ai.register_intent(req.agent_id, target, "fetching",
+                                                 history=hist+[pos])
+                        return {"agent_id": req.agent_id, "action_type": "move",
+                                "direction": esc_dir, "source": "heuristic_fallback",
+                                "fleet_ai_coord": "Escape: breaking oscillation"}
+
+            fleet_ai.register_intent(req.agent_id, target, "fetching",
+                                     history=hist+[pos])
             return {"agent_id": req.agent_id, "action_type": "move",
                     "direction": navigate(target), "source": "heuristic_fallback",
                     "fleet_ai_coord": f"Fleet AI: {req.agent_id} assigned item"}

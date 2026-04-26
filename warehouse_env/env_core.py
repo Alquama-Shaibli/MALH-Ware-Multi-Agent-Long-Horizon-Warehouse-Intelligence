@@ -46,9 +46,15 @@ class FleetAI:
         # Format: {agent_id: {"target": [x,y], "mode": "fetching"|"delivering"|"charging"}}
         self.agent_intents: Dict[str, Dict[str, Any]] = {}
 
-    def register_intent(self, agent_id: str, target: list, mode: str) -> None:
+    def register_intent(self, agent_id: str, target, mode: str,
+                         history: list = None) -> None:
         """Called by each agent before its step to announce its current plan."""
-        self.agent_intents[agent_id] = {"target": target, "mode": mode}
+        prev_hist = self.agent_intents.get(agent_id, {}).get("history", [])
+        self.agent_intents[agent_id] = {
+            "target": target,
+            "mode":   mode,
+            "history": (history if history is not None else prev_hist)[-6:],  # keep last 6 positions
+        }
 
     def reset(self) -> None:
         self.intervention_count      = 0
