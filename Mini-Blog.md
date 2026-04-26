@@ -1,5 +1,10 @@
 # 🏭 **Smart Warehouse: Multi-Agent AI that Learns**
 
+## 🎯 **Themes Covered**
+👉 Multi-Agent Interaction • Long-Horizon Planning • World Modeling • Self-Improvement  
+
+---
+
 ## 🚀 **Overview**
 A **trainable multi-agent warehouse environment** where AI agents:
 - 🤝 Coordinate with each other  
@@ -51,14 +56,10 @@ After training:
 
 ---
 
-## 🎯 **Themes Covered**
-👉 Multi-Agent Interaction • Long-Horizon Planning • World Modeling • Self-Improvement  
-
----
-
 ## 🔗 **Links**
 - GitHub: https://github.com/Alquama-Shaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence  
 - Colab: https://colab.research.google.com/drive/1W1NMqiOcWIAJK0XWdtSaVpZMq3NmD06p?usp=sharing  
 - Demo: *(add links)*  
 
+---
 > 🚀 From single-agent reasoning → real-world multi-agent intelligence
