@@ -203,10 +203,11 @@ def predict(req: PredictRequest):
                 "fleet_ai_coord": "Dropping at goal"}
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # P2 — LOW BATTERY → CHARGE  (threshold = distance to charger + 8 buffer)
+    # P2 — LOW BATTERY → CHARGE
+    # Threshold: enough steps to reach charger + 5 safety margin (min 20)
     # ═══════════════════════════════════════════════════════════════════════════
     dist_to_charge   = mdist(pos, charge)
-    charge_threshold = dist_to_charge + 8   # enough to always reach charger
+    charge_threshold = max(20, dist_to_charge + 5)
     if battery <= charge_threshold:
         fleet_ai.register_intent(req.agent_id, charge, "charging")
         if pos == charge:
@@ -253,15 +254,26 @@ def predict(req: PredictRequest):
                     "direction": navigate(target), "source": "heuristic_fallback",
                     "fleet_ai_coord": f"Fleet AI: {req.agent_id} assigned item"}
 
-        # No unclaimed items → park at charger and CHARGE (save battery while idle)
-        fleet_ai.register_intent(req.agent_id, charge, "idle")
-        if pos == charge:
-            return {"agent_id": req.agent_id, "action_type": "charge",
-                    "direction": None, "source": "heuristic_fallback",
-                    "fleet_ai_coord": "Idle: charging while waiting for new items"}
+        # No unclaimed items → park at charger (agent1) or near goal (agent2)
+        # Agents wait on OPPOSITE sides of the grid so they never overlap
+        if req.agent_id == "agent1":
+            idle_spot = charge
+        else:
+            # agent2 waits one cell left of goal
+            idle_spot = [max(0, goal[0] - 1), goal[1]]
+        fleet_ai.register_intent(req.agent_id, idle_spot, "idle")
+        if pos == idle_spot:
+            # At idle spot: charge if agent1 at charger, else hold still (move up → wall bounce)
+            if req.agent_id == "agent1":
+                return {"agent_id": req.agent_id, "action_type": "charge",
+                        "direction": None, "source": "heuristic_fallback",
+                        "fleet_ai_coord": "Idle: charging"}
+            return {"agent_id": req.agent_id, "action_type": "move",
+                    "direction": "up", "source": "heuristic_fallback",
+                    "fleet_ai_coord": "Idle: waiting near goal"}
         return {"agent_id": req.agent_id, "action_type": "move",
-                "direction": navigate(charge), "source": "heuristic_fallback",
-                "fleet_ai_coord": "Parking at charger (no items)"}
+                "direction": navigate(idle_spot), "source": "heuristic_fallback",
+                "fleet_ai_coord": "Parking (no items)"}
 
     # ═══════════════════════════════════════════════════════════════════════════
     # P4 — CARRYING → DELIVER (queue at adjacent cell if goal is blocked)

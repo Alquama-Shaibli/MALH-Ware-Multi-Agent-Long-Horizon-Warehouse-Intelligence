@@ -119,8 +119,8 @@ class StateManager:
         g = self.grid_size
 
         self.robots = {
-            "agent1": {"pos": [0,     0], "battery": float(cfg["battery"]), "carrying": []},
-            "agent2": {"pos": [g - 1, 0], "battery": float(cfg["battery"]), "carrying": []},
+            "agent1": {"pos": [1,     1], "battery": float(cfg["battery"]), "carrying": []},
+            "agent2": {"pos": [g - 2, 1], "battery": float(cfg["battery"]), "carrying": []},
         }
         self.goal           = [g - 1, g - 1]
         self.charge_station = [0,     g - 1]
