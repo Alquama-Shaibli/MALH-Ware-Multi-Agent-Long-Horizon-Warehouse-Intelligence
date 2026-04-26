@@ -1,19 +1,3 @@
----
-title: Smart Warehouse Multi-Agent Intelligence Environment (OpenEnv)
-emoji: 🏭
-colorFrom: indigo
-colorTo: purple
-sdk: docker
-pinned: false
-app_port: 7860
-tags:
-  - openenv
-  - multi-agent
-  - long-horizon
-  - reinforcement-learning
-  - fastapi
----
-
 # Smart Warehouse Multi-Agent Intelligence Environment
 
 > **THE PROBLEM:** Real-world automation (like Amazon or Flipkart warehouses) requires hundreds of agents to cooperate, avoid collisions, and share resources without explicitly communicating. Current LLM benchmarks only test single agents in isolated environments.
