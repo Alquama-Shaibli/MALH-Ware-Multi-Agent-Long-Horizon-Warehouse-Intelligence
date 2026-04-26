@@ -13,6 +13,7 @@
 - **Hugging Face Space (Runnable Env)**: [MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence](https://huggingface.co/spaces/AlquamaShaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence)
 - **GitHub Repository**: [MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence](https://github.com/Alquama-Shaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence)
 - **Colab Notebook (Training Pipeline)**: [Open in Colab](https://colab.research.google.com/drive/1W1NMqiOcWIAJK0XWdtSaVpZMq3NmD06p)
+<<<<<<< HEAD
 - **Mini-blog**: https://huggingface.co/spaces/AlquamaShaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence/blob/main/Mini-Blog.md
 - **Demo Video**: https://www.youtube.com/watch?v=zuq7Oi88kLc 
 
@@ -61,6 +62,7 @@ A comprehensive stability pass was performed across the heuristic controller, Fl
 | **`overflow-y: auto`** | Body is now scrollable — buttons and reward graph are always accessible |
 
 ---
+- **Demo Video**: https://www.youtube.com/watch?v=zuq7Oi88kLc
 
 ## 🏆 BEFORE vs AFTER TRAINING
 
