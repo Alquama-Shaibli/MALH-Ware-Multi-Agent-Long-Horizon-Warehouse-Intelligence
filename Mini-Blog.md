@@ -1,81 +1,136 @@
-🏭 Smart Warehouse: Multi-Agent AI that Learns to Coordinate
-🚀 What We Built
+# 🏭 **Smart Warehouse: Multi-Agent AI that Learns to Coordinate**
 
-A trainable multi-agent warehouse environment where two AI agents must:
+## 🚀 **What We Built**
+A **trainable multi-agent warehouse environment** where two AI agents must:
 
-Coordinate under shared constraints
-Plan across long horizons (up to 300 steps)
-Act under uncertainty (dynamic obstacles, partial observability)
-Improve through real training
-🧠 Why This Matters
+- 🤝 Coordinate under shared constraints  
+- 🧭 Plan across long horizons (up to 300 steps)  
+- 🌍 Act under uncertainty  
+- 📈 Improve through real training  
 
-Most AI benchmarks test single-agent reasoning.
-Real-world systems (warehouses, fleets, robotics) require:
+---
 
-👉 multi-agent coordination + long-term planning
+## 🧠 **Why This Matters**
+Most AI benchmarks test **single-agent reasoning**.
 
-This environment directly targets that gap.
+Real-world systems require:
 
-🤖 Agent Behavior
+> 🔥 **Multi-Agent Coordination + Long-Horizon Planning + Adaptation**
 
-Each agent continuously:
+This project directly targets that gap.
 
-Observes state (position, items, battery)
-Chooses actions (move, pick, deliver, charge)
-Learns from reward
+---
 
-Task pipeline:
+## 🤖 **What the Agents Do**
+Each agent:
 
-👉 Pick → Move → Deliver → Validate
+- 👀 Observes environment (position, items, battery)
+- 🎯 Takes actions (move, pick, deliver, charge)
+- 📊 Learns from rewards
 
-Hard tasks include dependency chains, forcing true planning.
+### 📦 Task Flow
+Pick → Move → Deliver → Validate  
 
-⚡ Multi-Agent Intelligence
+Hard tasks include **dependency chains**, forcing real planning.
 
+---
+
+## ⚡ **Multi-Agent Intelligence**
 Agents must:
 
-Avoid collisions
-Prevent duplicate work
-Share resources (charging station)
+- ❌ Avoid collisions  
+- ❌ Prevent duplicate work  
+- ⚡ Share limited resources (charging station)  
 
-We measure:
+### 📊 Key Signals:
+- `coordination_efficiency`
+- `intent_conflict`
+- `agent_collisions`
 
-coordination_efficiency
-intent_conflict
-collisions
-📊 Training Proof
+---
 
+## 📊 **Training Proof**
 After training:
 
-📈 Reward increases
-📉 Collisions decrease
-📦 Deliveries increase
+- 📈 Reward increases  
+- 📉 Collisions decrease  
+- 📦 Deliveries increase  
 
-👉 Clear evidence of learning, not scripting
+> ✅ Shows **real learning**, not scripted behavior
 
-🔁 Online RL (Real Learning)
+---
 
-Implemented lightweight Q-learning:
+## 🔁 **Online RL (Real-Time Learning)**
 
-Learns in ~50 episodes
-Policy saved and reused
-Powers real-time decisions via API
-🌐 Live System
+- ⚡ Lightweight Q-learning  
+- ⏱ Learns in ~50 episodes  
+- 💾 Saves policy (`q_table.pkl`)  
+- 🧠 Used in `/predict` API  
 
-Includes:
+---
 
-FastAPI environment (OpenEnv compliant)
-Real-time UI dashboard
-Live metrics + visualization
-RL-driven action prediction
-🏁 Key Takeaway
+## 🌐 **Live System**
 
-👉 This environment enables training AI that can:
+- ⚙️ FastAPI backend (OpenEnv compliant)  
+- 🎮 Interactive UI dashboard  
+- 📡 Real-time simulation + metrics  
 
-Coordinate with other agents
-Plan over long tasks
-Adapt to dynamic worlds
-🔗 Links
-GitHub: https://github.com/Alquama-Shaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence
-Colab: https://colab.research.google.com/drive/1W1NMqiOcWIAJK0XWdtSaVpZMq3NmD06p?usp=sharing
-Demo: (add your links)
+> 👀 Judges can **see agents learning live**
+
+---
+
+## 🎯 **Theme Coverage (Hackathon Alignment)**
+
+### 🤝 Theme #1 — Multi-Agent Interactions
+- Cooperation + competition  
+- Resource sharing (charger)  
+- Conflict detection (`intent_conflict`)  
+- Emergent coordination behavior  
+
+### 🧭 Theme #2 — Long-Horizon Planning
+- 300-step tasks  
+- Multi-stage order completion  
+- Dependency chains (order1 → order2 → order3)  
+
+### 🌍 Theme #3 — World Modeling
+- Partial observability  
+- Dynamic obstacles  
+- Stochastic item movement  
+- Agents adapt to changing environment  
+
+### 🔁 Theme #4 — Self-Improvement
+- Online RL (Q-learning)  
+- Adaptive curriculum  
+- Measurable reward improvement  
+
+---
+
+## 🏁 **Key Takeaway**
+
+👉 This environment enables AI to:
+
+- Think beyond single-agent logic  
+- Coordinate in real-world scenarios  
+- Learn and improve over time  
+
+---
+
+## 🔗 **Links**
+
+- 💻 GitHub  
+  https://github.com/Alquama-Shaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence  
+
+- 📓 Colab (Training Demo)  
+  https://colab.research.google.com/drive/1W1NMqiOcWIAJK0XWdtSaVpZMq3NmD06p?usp=sharing  
+
+- 🌐 Live Environment  
+  *(Add Hugging Face Space link)*  
+
+- 🎬 Demo Video  
+  *(Add YouTube link)*  
+
+---
+
+## 🔥 **Final Line**
+
+> 🚀 From single-agent reasoning → to real-world multi-agent intelligence
