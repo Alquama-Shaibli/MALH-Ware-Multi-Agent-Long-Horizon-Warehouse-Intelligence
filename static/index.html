@@ -10,20 +10,20 @@
             background-color: #0f172a;
             color: #e2e8f0;
             margin: 0;
-            padding: 20px;
+            padding: 10px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            overflow: hidden;   /* stops vertical stretch */
+            overflow: hidden;
         }
         .banner {
             background: linear-gradient(90deg, #1e3a8a 0%, #312e81 100%);
             width: 100%;
-            max-width: 900px;
+            max-width: 780px;
             text-align: center;
-            padding: 15px;
+            padding: 8px;
             border-radius: 8px;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             border: 1px solid #3b82f6;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             flex-shrink: 0;
@@ -31,19 +31,19 @@
         h1 {
             color: #38bdf8;
             margin: 0;
-            font-size: 24px;
+            font-size: 16px;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
         #main-container {
-            height: calc(100vh - 120px);
+            height: calc(100vh - 80px);
             width: 100%;
-            max-width: 950px;
+            max-width: 780px;
             display: flex;
             flex-direction: row;
-            gap: 20px;
+            gap: 12px;
             background: #1e293b;
-            padding: 20px;
+            padding: 12px;
             border-radius: 12px;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
         }
@@ -55,11 +55,11 @@
             align-items: center;
         }
         #right-panel {
-            width: 300px;
+            width: 240px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
-            overflow-y: auto;  /* scroll instead of stretching */
+            gap: 10px;
+            overflow-y: auto;
             padding-right: 5px;
         }
         .canvas-container {
@@ -75,8 +75,8 @@
             border-radius: 8px;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
             display: block;
-            max-height: 500px;
-            max-width: 500px;
+            max-height: 380px;
+            max-width: 380px;
         }
         .overlay-msg {
             position: absolute;
@@ -120,12 +120,12 @@
         .agent1-color { color: #3b82f6; }
         .agent2-color { color: #22c55e; }
         .controls {
-            margin-top: 15px;
+            margin-top: 10px;
             display: flex;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
             width: 100%;
-            max-width: 500px;
+            max-width: 380px;
         }
         button {
             background: #38bdf8;
@@ -148,9 +148,9 @@
         button.demo.active { background: #f59e0b; }
         .chart-container {
             position: relative;
-            height: 150px;
+            height: 110px;
             width: 100%;
-            margin-top: 10px;
+            margin-top: 8px;
             background: white;
             border-radius: 4px;
         }
@@ -216,8 +216,8 @@
         // Global Canvas Setup (FIXED SIZE)
         const canvas = document.getElementById("gridCanvas");
         const ctx = canvas.getContext("2d");
-        canvas.width = 500;
-        canvas.height = 500;
+        canvas.width = 380;
+        canvas.height = 380;
 
         async function fetchState() {
           try {
@@ -238,7 +238,9 @@
           document.getElementById("episode").innerText = currentEpisode;
           document.getElementById("collisions").innerText = data.collisions;
 
-          document.getElementById("items").innerText = data.items.length;
+          // Items remaining = total orders - completed (pending orders)
+          const pending = (data.total_orders || data.items.length) - (data.deliveries || 0);
+          document.getElementById("items").innerText = Math.max(0, pending);
           document.getElementById("deliveries").innerText = data.deliveries;
 
           if (data.agents.agent1) {
