@@ -26,11 +26,11 @@ tags:
 
 ## 🔗 Quick Links
 
-- **Hugging Face Space (Runnable Env)**: [Smart Warehouse Space](https://huggingface.co/spaces/AlquamaShaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence)
+- **Hugging Face Space (Runnable Env)**: [MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence](https://huggingface.co/spaces/AlquamaShaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence)
 - **GitHub Repository**: [MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence](https://github.com/Alquama-Shaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence)
 - **Colab Notebook (Training Pipeline)**: [Open in Colab](https://colab.research.google.com/drive/1W1NMqiOcWIAJK0XWdtSaVpZMq3NmD06p)
-- **Mini-blog (Hugging Face post)**: *(ADD LINK HERE)*
-- **Demo Video (< 2 mins)**: *(ADD LINK HERE)*
+- **Mini-blog**: https://huggingface.co/spaces/AlquamaShaibli/MALH-Ware-Multi-Agent-Long-Horizon-Warehouse-Intelligence/blob/main/Mini-Blog.md
+- **Demo Video**: https://youtu.be/zuq7Oi88kLc?si=WHjfqswsnfMqAjkS
 
 ---
 
